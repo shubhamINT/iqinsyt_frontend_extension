@@ -13,13 +13,17 @@ That split is important because Chrome Extension contexts have different capabil
 
 IQinsyt provides a side panel experience that can detect relevant events from host pages and later fetch neutral research insights from backend APIs.
 
-Current repository status is scaffold + shared-contracts:
+Current repository status is integrated extension foundation:
 
 - Extension build pipeline is wired.
 - Entry points for side panel/background/content exist.
 - Shared type contracts are in place.
 - Auth/API runtime layer is in place.
-- Later phases add message routing, detection logic, hooks, and full UI behavior.
+- Background message routing and content detection logic are in place.
+- State machine/context layer is in place.
+- Custom hook modules are in place.
+- UI component modules are in place.
+- Final app wiring and side-panel styling integration are in place.
 
 ## Why This Structure
 
@@ -100,14 +104,27 @@ iqinsyt_frontend_extension/
 │   ├── auth/
 │   │   └── tokenManager.ts  # Chrome storage token handling + refresh path
 │   ├── background/
-│   │   └── index.ts         # Background service worker entrypoint
+│   │   └── index.ts         # Background message router + API bridge
 │   ├── content/
-│   │   ├── detector.ts      # Event detection module (placeholder)
+│   │   ├── detector.ts      # DOM heuristics + mutation observer detection
 │   │   └── index.ts         # Content script entrypoint
+│   ├── assets/              # Reserved local asset folder (currently empty)
+│   ├── components/
+│   │   ├── ErrorState.tsx   # Error state UI block
+│   │   ├── EventCard.tsx    # Detected event summary + analyse action
+│   │   ├── ManualInput.tsx  # Manual event input form
+│   │   ├── ResearchOutput.tsx # Research response composition
+│   │   ├── SectionBlock.tsx # Individual research section block
+│   │   └── StatusBar.tsx    # Top status indicator
+│   ├── hooks/
+│   │   ├── useAuth.ts       # Auth/session hook for side panel
+│   │   ├── useEventDetection.ts # Message listener for detected events
+│   │   └── useInsightQuery.ts # Analysis request/response hook
 │   ├── shared/
 │   │   └── types.ts         # Shared app/message/state contracts
 │   ├── sidepanel/
-│   │   ├── App.tsx          # Root React component
+│   │   ├── App.tsx          # Reducer + provider root for side panel state
+│   │   ├── context.tsx      # App context and context hook
 │   │   ├── index.html       # Side panel HTML shell
 │   │   └── main.tsx         # React bootstrap entrypoint
 │   └── index.css            # Global styles/tokens
@@ -143,8 +160,22 @@ iqinsyt_frontend_extension/
 | `src/api/types.ts` | File | Defines API request/response/auth/user contract types consumed across modules. |
 | `src/auth/` | Dir | Authentication utilities isolated from UI/runtime contexts. |
 | `src/auth/tokenManager.ts` | File | Manages token storage in `chrome.storage.local` and handles token refresh flow. |
+| `src/assets/` | Dir | Local source-asset folder reserved for future static assets (currently empty). |
+| `src/components/` | Dir | Presentational UI components for side panel states and research output rendering. |
+| `src/components/StatusBar.tsx` | File | Status strip component that reflects current app phase and loading state. |
+| `src/components/EventCard.tsx` | File | Displays detected event details and analysis action trigger. |
+| `src/components/ManualInput.tsx` | File | Manual event-entry fallback form when automatic detection fails. |
+| `src/components/SectionBlock.tsx` | File | Expandable/collapsible section renderer for research content blocks. |
+| `src/components/ResearchOutput.tsx` | File | Renders canonical 7-section research output and meta badges. |
+| `src/components/ErrorState.tsx` | File | Error display component with dismiss action. |
+| `src/hooks/` | Dir | Side-panel hooks that bridge Chrome runtime messaging with reducer dispatch. |
+| `src/hooks/useAuth.ts` | File | Session/auth hook that syncs token status and user plan into app state. |
+| `src/hooks/useEventDetection.ts` | File | Listener hook for detection messages emitted from content/background contexts. |
+| `src/hooks/useInsightQuery.ts` | File | Analysis hook that dispatches requests and consumes background analysis responses. |
 | `src/shared/` | Dir | Cross-context shared contracts for extension messaging and app state. |
 | `src/shared/types.ts` | File | Defines message, event, reducer action, and app-state types shared by contexts. |
+| `src/sidepanel/context.tsx` | File | Defines `AppContext` and `useAppContext` helper for shared state access. |
+| `src/sidepanel/App.tsx` | File | Integrates hooks + reducer and performs phase-based UI composition for the side panel. |
 | `tsconfig.app.json` | File | TypeScript compiler settings for browser/app code under `src/`. |
 | `tsconfig.json` | File | Root TypeScript project references/coordination file. |
 | `tsconfig.node.json` | File | TypeScript settings for Node-side tooling/config files (for example Vite config typing). |
@@ -159,6 +190,7 @@ src/
 ├── api/
 │   ├── client.ts
 │   └── types.ts
+├── assets/
 ├── auth/
 │   └── tokenManager.ts
 ├── background/
@@ -166,10 +198,22 @@ src/
 ├── content/
 │   ├── detector.ts
 │   └── index.ts
+├── components/
+│   ├── ErrorState.tsx
+│   ├── EventCard.tsx
+│   ├── ManualInput.tsx
+│   ├── ResearchOutput.tsx
+│   ├── SectionBlock.tsx
+│   └── StatusBar.tsx
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useEventDetection.ts
+│   └── useInsightQuery.ts
 ├── shared/
 │   └── types.ts
 ├── sidepanel/
 │   ├── App.tsx
+│   ├── context.tsx
 │   ├── index.html
 │   └── main.tsx
 └── index.css
@@ -180,20 +224,33 @@ src/
 | `src/api/` | Dir | API-facing module area for backend contract and request-layer code. |
 | `src/api/client.ts` | File | Encapsulates backend calls, auth-bearing fetch flow, and normalized API error classes. |
 | `src/api/types.ts` | File | Shared type contracts for insight/auth/user endpoints. Keeps API shape centralized. |
+| `src/assets/` | Dir | Reserved source-asset directory (currently empty). |
 | `src/auth/` | Dir | Authentication boundary for token persistence/refresh behavior. |
 | `src/auth/tokenManager.ts` | File | Reads/writes auth tokens from extension storage and refreshes access tokens as needed. |
 | `src/background/` | Dir | Background service worker code. Centralized privileged extension logic lives here. |
-| `src/background/index.ts` | File | Service worker entrypoint scaffold. Later phases route and handle Chrome runtime messages here. |
+| `src/background/index.ts` | File | Background service worker routing layer: relays detection and triggers analysis fetch flow. |
 | `src/content/` | Dir | Content-script layer for webpage context interaction. |
-| `src/content/index.ts` | File | Content script entrypoint scaffold, loaded by manifest on matched pages. |
-| `src/content/detector.ts` | File | Detection module placeholder. Intended home for DOM heuristics and event extraction logic. |
+| `src/content/index.ts` | File | Content script entrypoint that boots detector logic on matched pages. |
+| `src/content/detector.ts` | File | MutationObserver + DOM heuristic detector that emits detected events to background. |
+| `src/components/` | Dir | Side panel presentation layer for status, event, manual input, output, and errors. |
+| `src/components/StatusBar.tsx` | File | Header/status component reflecting current phase and loading indicator. |
+| `src/components/EventCard.tsx` | File | Event summary card with action button to trigger analysis. |
+| `src/components/ManualInput.tsx` | File | Manual entry form fallback when no event is auto-detected. |
+| `src/components/SectionBlock.tsx` | File | Section item renderer with expandable body and unavailable fallback text. |
+| `src/components/ResearchOutput.tsx` | File | Composes section blocks from response payload with metadata badges and rerun control. |
+| `src/components/ErrorState.tsx` | File | Error panel with message and dismiss action. |
+| `src/hooks/` | Dir | Side panel hook layer for auth checks and Chrome message subscriptions. |
+| `src/hooks/useAuth.ts` | File | Performs auth bootstrap and user-plan sync, exposes authentication status/logout. |
+| `src/hooks/useEventDetection.ts` | File | Subscribes to runtime detection messages and dispatches reducer actions. |
+| `src/hooks/useInsightQuery.ts` | File | Triggers analysis requests and handles analysis/auth/error responses from background. |
 | `src/shared/` | Dir | Shared type contracts used by background/content/sidepanel without duplication. |
 | `src/shared/types.ts` | File | Defines message/action/state/event contracts for reducer and runtime messaging. |
 | `src/sidepanel/` | Dir | React application for Chrome side panel UI. |
 | `src/sidepanel/index.html` | File | Side panel HTML shell with root mount node and module script entry. |
 | `src/sidepanel/main.tsx` | File | React mount/bootstrap entrypoint for side panel app. |
-| `src/sidepanel/App.tsx` | File | Top-level side panel component scaffold. |
-| `src/index.css` | File | Global CSS variables/base styles shared by side panel UI entrypoint. |
+| `src/sidepanel/App.tsx` | File | Final integration shell that invokes hooks and renders components by current phase. |
+| `src/sidepanel/context.tsx` | File | Exposes context object and strict hook for typed `state`/`dispatch` access. |
+| `src/index.css` | File | Global design tokens plus integrated side-panel layout/component styling. |
 
 ## Build and Runtime Architecture
 
@@ -227,10 +284,15 @@ src/
 
 ## Current Phase Baseline
 
-As of now, the repository has completed early scaffolding, shared type foundations, and the API/auth runtime foundation:
+As of now, Phases 1 through 9 are implemented in the repository:
 
 - Build infrastructure is present.
 - Folder and entrypoint skeleton is present.
 - Shared API and cross-context type contracts are present (`src/api/types.ts`, `src/shared/types.ts`).
 - Auth/token manager and API client modules are present (`src/auth/tokenManager.ts`, `src/api/client.ts`).
-- Message routing, detector logic, hooks, and full UI are still pending in upcoming phases.
+- Background message routing and detector logic are present (`src/background/index.ts`, `src/content/detector.ts`, `src/content/index.ts`).
+- Reducer/context state foundation is present (`src/sidepanel/App.tsx`, `src/sidepanel/context.tsx`).
+- Hook modules are present (`src/hooks/useAuth.ts`, `src/hooks/useEventDetection.ts`, `src/hooks/useInsightQuery.ts`).
+- UI component modules are present (`src/components/StatusBar.tsx`, `src/components/EventCard.tsx`, `src/components/ManualInput.tsx`, `src/components/SectionBlock.tsx`, `src/components/ResearchOutput.tsx`, `src/components/ErrorState.tsx`).
+- Final app wiring is present (`src/sidepanel/App.tsx`) including hook invocation and phase-based rendering.
+- Integrated side-panel styling is present (`src/index.css`).

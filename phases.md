@@ -10,11 +10,11 @@ Each phase is fully independent in scope. A separate agent can be handed any pha
 | Phase 2 — Folder Skeleton & Entry Points | Completed | Side panel/background/content skeleton exists and compiles. |
 | Phase 3 — Shared TypeScript Types | Completed (with contract drift) | `src/shared/types.ts` and `src/api/types.ts` exist, but naming/shapes differ from original plan text. |
 | Phase 4 — Auth & API Client | Completed (with contract drift) | `src/auth/tokenManager.ts` and `src/api/client.ts` exist and compile, with implementation differences from original plan text. |
-| Phase 5 — Background Service Worker & Content Script | Not started | Pending implementation. |
-| Phase 6 — State Machine (Context + Reducer) | Not started | Pending implementation. |
-| Phase 7 — Custom Hooks | Not started | Pending implementation. |
-| Phase 8 — UI Components | Not started | Pending implementation. |
-| Phase 9 — Final Wiring & Styling | Not started | Pending implementation. |
+| Phase 5 — Background Service Worker & Content Script | Completed (with contract drift) | Background message routing and content detection are implemented, with message names differing from the original plan text. |
+| Phase 6 — State Machine (Context + Reducer) | Completed (with contract drift) | Reducer + context provider are implemented in sidepanel, with naming/shape differences from the original plan text. |
+| Phase 7 — Custom Hooks | Completed (with contract drift) | Hook modules are implemented and integrated with side panel wiring. |
+| Phase 8 — UI Components | Completed (with contract drift) | Component modules are implemented and now composed in app-level rendering flow. |
+| Phase 9 — Final Wiring & Styling | Completed (with contract drift) | App wiring and side-panel styling are implemented end-to-end; behavior and naming follow current contracts. |
 
 ---
 
@@ -200,6 +200,25 @@ Completed (with contract drift from original plan).
 ### Depends on
 Phase 3 (MessageTypes, DetectedEvent), Phase 4 (api/client for background worker)
 
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (background routing + detector-based content script integration) is met via:
+  - `src/background/index.ts`
+  - `src/content/detector.ts`
+  - `src/content/index.ts`
+- Background currently routes:
+  - `EVENT_DETECTED` by relaying message to extension listeners (side panel)
+  - `REQUEST_ANALYSIS` by calling `fetchInsight(event)` and returning `ANALYSIS_RESULT`
+  - auth/subscription/general errors via `AUTH_REQUIRED` and `ANALYSIS_ERROR`
+- Content script currently:
+  - calls `startDetection()` on load
+  - uses `MutationObserver` plus heading/data-attribute/title heuristics
+  - emits `EVENT_DETECTED` when event parsing succeeds
+  - emits `DETECTION_FAILED` after timeout fallback
+- Message names differ from original Phase 5 plan (`FETCH_INSIGHT` / `INSIGHT_RESULT` / `ERROR`) and align with current shared contract conventions.
+
 ---
 
 ## Phase 6 — State Machine (Context + Reducer)
@@ -229,6 +248,22 @@ State shape (from architecture.md §13):
 ### Depends on
 Phase 3 (AppState, AppAction, InsightResponse, DetectedEvent, UserPlan types)
 
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (state machine + context provider in side panel) is met via:
+  - `src/sidepanel/App.tsx`
+  - `src/sidepanel/context.tsx`
+- `App.tsx` currently implements:
+  - `initialState` + `appReducer` with `useReducer`
+  - `AppContext.Provider` with `{ state, dispatch }`
+  - final phase-based component rendering via `PanelContent`
+- Current state/action model follows implemented shared contracts:
+  - state field uses `phase` (not `status`)
+  - data fields use `detectedEvent` and `result` (not `event` and `insight`)
+  - includes `manual` phase and `SET_USER` / `DETECTION_FAILED` style actions
+
 ---
 
 ## Phase 7 — Custom Hooks
@@ -255,6 +290,24 @@ Phase 3 (AppState, AppAction, InsightResponse, DetectedEvent, UserPlan types)
 
 ### Depends on
 Phase 3 (types), Phase 4 (tokenManager), Phase 6 (AppContext dispatch)
+
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (hook module implementation) is met via:
+  - `src/hooks/useAuth.ts`
+  - `src/hooks/useEventDetection.ts`
+  - `src/hooks/useInsightQuery.ts`
+- Current hook behavior:
+  - `useAuth`: checks token, fetches plan, dispatches `SET_USER` / `AUTH_REQUIRED`, and exposes `logout`
+  - `useEventDetection`: listens for `EVENT_DETECTED` and `DETECTION_FAILED`
+  - `useInsightQuery`: sends `REQUEST_ANALYSIS`, listens for `ANALYSIS_RESULT` / `ANALYSIS_ERROR` / `AUTH_REQUIRED`
+- Contract drift vs original plan:
+  - Uses implemented message/action names (`REQUEST_ANALYSIS`, `ANALYSIS_RESULT`, `ANALYSIS_ERROR`) instead of original plan names (`FETCH_INSIGHT`, `INSIGHT_RESULT`, `ERROR`)
+  - `useAuth` currently exposes `{ isAuthenticated, logout }` (not full `{ isAuthenticated, user, login, logout }`)
+- Integration note:
+  - Hooks are invoked from `src/sidepanel/App.tsx` within `PanelContent` and now participate in runtime flow.
 
 ---
 
@@ -285,6 +338,29 @@ Phase 3 (types), Phase 4 (tokenManager), Phase 6 (AppContext dispatch)
 ### Depends on
 Phase 3 (Section, DetectedEvent, InsightResponse types), Phase 6 (AppContext for reading state)
 
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (6 UI component modules) is met via:
+  - `src/components/StatusBar.tsx`
+  - `src/components/EventCard.tsx`
+  - `src/components/ManualInput.tsx`
+  - `src/components/SectionBlock.tsx`
+  - `src/components/ResearchOutput.tsx`
+  - `src/components/ErrorState.tsx`
+- Current component behavior is implementation-oriented and typed:
+  - `StatusBar` reads `phase` from app context and shows state label/spinner
+  - `EventCard` shows detected event and "Analyse" trigger
+  - `ManualInput` supports manual title submit fallback
+  - `ResearchOutput` renders 7 fixed sections using `SectionBlock`
+  - `ErrorState` displays dismissible error messaging
+- Contract drift vs original plan:
+  - Components are prop/context shapes aligned to current contracts (`phase`, `DetectedEvent { title, source }`, section object shape in `InsightResponse`)
+  - `SectionBlock` is keyed to current API section strings instead of `Section[]` item model from original Phase 3 text
+- Integration note:
+  - Components are composed in `src/sidepanel/App.tsx` by phase and are active in runtime flow.
+
 ---
 
 ## Phase 9 — Final Wiring & Styling
@@ -314,3 +390,17 @@ Call all three hooks inside `App`.
 
 ### Depends on
 All previous phases (this is the integration phase)
+
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Final integration is implemented in `src/sidepanel/App.tsx`:
+  - hooks are invoked (`useAuth`, `useEventDetection`, `useInsightQuery`)
+  - phase-based rendering composes `StatusBar`, `ManualInput`, `EventCard`, `ResearchOutput`, and `ErrorState`
+  - manual event submit path is wired (`source: 'manual'`)
+- Styling integration is implemented in `src/index.css` with:
+  - fixed panel width and layout system
+  - status, card, section, badge, idle/loading/error state styles
+  - loading spinner and interaction styles for buttons/inputs
+- Integration behavior follows current contracts and includes implemented phases (`idle`, `manual`, `detected`, `loading`, `result`, `error`).

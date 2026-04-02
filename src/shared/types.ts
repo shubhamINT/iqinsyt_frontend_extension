@@ -4,6 +4,7 @@ export type MessageType =
   | 'EVENT_DETECTED'   // content script → background → side panel
   | 'REQUEST_ANALYSIS' // side panel → background → API
   | 'ANALYSIS_RESULT'  // background → side panel
+  | 'ANALYSIS_ERROR'   // background → side panel (API call failed)
   | 'DETECTION_FAILED' // background → side panel (trigger manual input)
   | 'AUTH_REQUIRED';   // background → side panel
 

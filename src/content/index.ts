@@ -1,1 +1,3 @@
-console.log('content ready')
+import { startDetection } from './detector.ts'
+
+startDetection()
