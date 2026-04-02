@@ -2,6 +2,20 @@
 
 Each phase is fully independent in scope. A separate agent can be handed any phase with only the context listed under "Depends on." Phases do not overlap.
 
+## Implementation Status (Current Repository)
+
+| Phase | Status | Notes |
+|---|---|---|
+| Phase 1 — Build Infrastructure | Completed | CRX + manifest wiring is in place and build succeeds. |
+| Phase 2 — Folder Skeleton & Entry Points | Completed | Side panel/background/content skeleton exists and compiles. |
+| Phase 3 — Shared TypeScript Types | Completed (with contract drift) | `src/shared/types.ts` and `src/api/types.ts` exist, but naming/shapes differ from original plan text. |
+| Phase 4 — Auth & API Client | Completed (with contract drift) | `src/auth/tokenManager.ts` and `src/api/client.ts` exist and compile, with implementation differences from original plan text. |
+| Phase 5 — Background Service Worker & Content Script | Not started | Pending implementation. |
+| Phase 6 — State Machine (Context + Reducer) | Not started | Pending implementation. |
+| Phase 7 — Custom Hooks | Not started | Pending implementation. |
+| Phase 8 — UI Components | Not started | Pending implementation. |
+| Phase 9 — Final Wiring & Styling | Not started | Pending implementation. |
+
 ---
 
 ## Phase 1 — Build Infrastructure
@@ -24,11 +38,14 @@ Each phase is fully independent in scope. A separate agent can be handed any pha
 
 ### Verification
 - `pnpm install` — no errors
-- `pnpm build` — `dist/` contains `manifest.json`, `sidepanel/`, `background/`, `content/` folders
+- `pnpm build` — `dist/` contains `manifest.json`, side panel HTML, and CRX-generated background/content JS artifacts
 - Load `dist/` as unpacked extension in Chrome — no errors in `chrome://extensions`
 
 ### Depends on
 Nothing. This is the foundation.
+
+### Status
+Completed.
 
 ---
 
@@ -62,6 +79,9 @@ Nothing. This is the foundation.
 ### Depends on
 Phase 1 (build config must exist so `pnpm build` targets the right output)
 
+### Status
+Completed.
+
 ---
 
 ## Phase 3 — Shared TypeScript Types
@@ -90,6 +110,23 @@ Phase 1 (build config must exist so `pnpm build` targets the right output)
 ### Depends on
 Phase 2 (folder structure must exist)
 
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (shared type-only modules) is met via:
+  - `src/shared/types.ts`
+  - `src/api/types.ts`
+- The implemented contract names and shapes currently differ from this section's original spec.
+- Implemented message/event/state model currently uses:
+  - `MessageType` as string-union values (`EVENT_DETECTED`, `REQUEST_ANALYSIS`, `ANALYSIS_RESULT`, `DETECTION_FAILED`, `AUTH_REQUIRED`)
+  - `ExtensionMessage`, `DetectedEvent`, `AppPhase`, `AppState`, `AppAction`
+- Implemented API model currently uses:
+  - `InsightRequest` with `eventTitle`, `eventSource`, `timestamp`
+  - `InsightResponse` with structured sections and metadata fields
+  - `AuthTokenResponse`
+  - `UserPlanResponse`
+
 ---
 
 ## Phase 4 — Auth & API Client
@@ -116,6 +153,25 @@ Phase 2 (folder structure must exist)
 
 ### Depends on
 Phase 3 (imports from `src/shared/types.ts` and `src/api/types.ts`)
+
+### Status
+Completed (with contract drift from original plan).
+
+### Current Implementation Notes
+- Phase goal (auth/token manager + API client modules) is met via:
+  - `src/auth/tokenManager.ts`
+  - `src/api/client.ts`
+- `tokenManager` currently implements:
+  - `setTokens(access, refresh)`, `clearTokens()`, `getAccessToken()`
+  - internal refresh flow (non-exported) that calls `/v1/auth/refresh`
+  - JWT expiry check before returning access token
+- `api/client` currently implements:
+  - `fetchInsight(event: DetectedEvent)` (takes detected event directly, not `InsightRequest`)
+  - `fetchAuthToken(code: string)`
+  - `fetchUserPlan()`
+  - `authedFetch` helper with typed error classes (`AuthError`, `SubscriptionError`, `ApiError`)
+- Current runtime config uses `import.meta.env.VITE_BACKEND_URL` as base URL (instead of a hardcoded `https://api.iqinsyt.com`).
+- 401 behavior currently throws `AuthError`; automatic refresh-retry orchestration is handled via token retrieval path rather than retry logic inside each client call.
 
 ---
 

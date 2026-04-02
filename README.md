@@ -13,11 +13,13 @@ That split is important because Chrome Extension contexts have different capabil
 
 IQinsyt provides a side panel experience that can detect relevant events from host pages and later fetch neutral research insights from backend APIs.
 
-Current repository status is scaffold-first:
+Current repository status is scaffold + shared-contracts:
 
 - Extension build pipeline is wired.
 - Entry points for side panel/background/content exist.
-- Later phases add shared types, auth/api logic, detection logic, hooks, and full UI.
+- Shared type contracts are in place.
+- Auth/API runtime layer is in place.
+- Later phases add message routing, detection logic, hooks, and full UI behavior.
 
 ## Why This Structure
 
@@ -92,11 +94,18 @@ iqinsyt_frontend_extension/
 │   ├── favicon.svg          # Static asset
 │   └── icons.svg            # Static asset
 ├── src/
+│   ├── api/
+│   │   ├── client.ts        # API runtime client + typed fetch errors
+│   │   └── types.ts         # API request/response contracts
+│   ├── auth/
+│   │   └── tokenManager.ts  # Chrome storage token handling + refresh path
 │   ├── background/
 │   │   └── index.ts         # Background service worker entrypoint
 │   ├── content/
 │   │   ├── detector.ts      # Event detection module (placeholder)
 │   │   └── index.ts         # Content script entrypoint
+│   ├── shared/
+│   │   └── types.ts         # Shared app/message/state contracts
 │   ├── sidepanel/
 │   │   ├── App.tsx          # Root React component
 │   │   ├── index.html       # Side panel HTML shell
@@ -129,6 +138,13 @@ iqinsyt_frontend_extension/
 | `public/favicon.svg` | File | Browser/extension icon asset used by build outputs and UI entry HTML. |
 | `public/icons.svg` | File | Additional static icon asset bundle used by UI or branding. |
 | `src/` | Dir | All source code for side panel UI, background worker, and content script. |
+| `src/api/` | Dir | API-layer contracts and runtime client module for backend communication. |
+| `src/api/client.ts` | File | Runtime API wrapper (auth headers, endpoint calls, typed API/auth/subscription errors). |
+| `src/api/types.ts` | File | Defines API request/response/auth/user contract types consumed across modules. |
+| `src/auth/` | Dir | Authentication utilities isolated from UI/runtime contexts. |
+| `src/auth/tokenManager.ts` | File | Manages token storage in `chrome.storage.local` and handles token refresh flow. |
+| `src/shared/` | Dir | Cross-context shared contracts for extension messaging and app state. |
+| `src/shared/types.ts` | File | Defines message, event, reducer action, and app-state types shared by contexts. |
 | `tsconfig.app.json` | File | TypeScript compiler settings for browser/app code under `src/`. |
 | `tsconfig.json` | File | Root TypeScript project references/coordination file. |
 | `tsconfig.node.json` | File | TypeScript settings for Node-side tooling/config files (for example Vite config typing). |
@@ -140,11 +156,18 @@ iqinsyt_frontend_extension/
 
 ```text
 src/
+├── api/
+│   ├── client.ts
+│   └── types.ts
+├── auth/
+│   └── tokenManager.ts
 ├── background/
 │   └── index.ts
 ├── content/
 │   ├── detector.ts
 │   └── index.ts
+├── shared/
+│   └── types.ts
 ├── sidepanel/
 │   ├── App.tsx
 │   ├── index.html
@@ -154,11 +177,18 @@ src/
 
 | Path | Type | Why It Exists |
 |---|---|---|
+| `src/api/` | Dir | API-facing module area for backend contract and request-layer code. |
+| `src/api/client.ts` | File | Encapsulates backend calls, auth-bearing fetch flow, and normalized API error classes. |
+| `src/api/types.ts` | File | Shared type contracts for insight/auth/user endpoints. Keeps API shape centralized. |
+| `src/auth/` | Dir | Authentication boundary for token persistence/refresh behavior. |
+| `src/auth/tokenManager.ts` | File | Reads/writes auth tokens from extension storage and refreshes access tokens as needed. |
 | `src/background/` | Dir | Background service worker code. Centralized privileged extension logic lives here. |
 | `src/background/index.ts` | File | Service worker entrypoint scaffold. Later phases route and handle Chrome runtime messages here. |
 | `src/content/` | Dir | Content-script layer for webpage context interaction. |
 | `src/content/index.ts` | File | Content script entrypoint scaffold, loaded by manifest on matched pages. |
 | `src/content/detector.ts` | File | Detection module placeholder. Intended home for DOM heuristics and event extraction logic. |
+| `src/shared/` | Dir | Shared type contracts used by background/content/sidepanel without duplication. |
+| `src/shared/types.ts` | File | Defines message/action/state/event contracts for reducer and runtime messaging. |
 | `src/sidepanel/` | Dir | React application for Chrome side panel UI. |
 | `src/sidepanel/index.html` | File | Side panel HTML shell with root mount node and module script entry. |
 | `src/sidepanel/main.tsx` | File | React mount/bootstrap entrypoint for side panel app. |
@@ -197,8 +227,10 @@ src/
 
 ## Current Phase Baseline
 
-As of now, the repository has baseline scaffolding for early phases:
+As of now, the repository has completed early scaffolding, shared type foundations, and the API/auth runtime foundation:
 
 - Build infrastructure is present.
 - Folder and entrypoint skeleton is present.
-- Advanced runtime logic and shared type layers are still pending implementation in upcoming phases.
+- Shared API and cross-context type contracts are present (`src/api/types.ts`, `src/shared/types.ts`).
+- Auth/token manager and API client modules are present (`src/auth/tokenManager.ts`, `src/api/client.ts`).
+- Message routing, detector logic, hooks, and full UI are still pending in upcoming phases.
