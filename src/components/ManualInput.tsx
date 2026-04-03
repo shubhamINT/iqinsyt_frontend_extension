@@ -17,7 +17,7 @@ export default function ManualInput({ onSubmit }: Props) {
     <div className="iq-card">
       <p className="iq-manual__heading">No event detected</p>
       <p className="iq-manual__sub">
-        Navigate to a sports or prediction market page, or enter the event name below.
+        Navigate to a sports or event information page, or enter the event name below.
       </p>
       <form onSubmit={handleSubmit}>
         <input

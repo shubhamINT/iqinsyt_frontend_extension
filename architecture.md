@@ -33,7 +33,7 @@ IQinsyt is a **neutral AI-powered research utility** delivered as a Chrome exten
 - Not a betting tool
 - Does not show odds, predictions, or recommendations
 - Does not integrate with platform APIs or read cookies/session data from host pages
-- Does not modify the host page DOM in any way
+- Does not modify host page content or data — only injects a temporary highlight overlay and toast UI during picker mode
 
 **What it IS:**
 - A research assistant that surfaces factual context about an event
@@ -48,12 +48,13 @@ IQinsyt is a **neutral AI-powered research utility** delivered as a Chrome exten
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CHROME BROWSER                           │
 │                                                                 │
-│   Host Page (Sportsbet, Kalshi, etc.)                           │
+│   Host Page (Kalshi, Polymarket, etc.)                            │
 │        │                                                        │
-│        │  MutationObserver / DOM parsing                        │
+│        │  Kalshi auto-detect (SPA route observer)               │
+│        │  Interactive element picker (user-triggered)            │
 │        ▼                                                        │
 │   Content Script  ──────────────────────►  Side Panel UI       │
-│   (event detection)       Chrome messaging  (React/TypeScript)  │
+│   (detection + parsing)    Chrome messaging  (React/TypeScript)  │
 │                                                  │              │
 │   Background Service Worker                      │              │
 │   (manages auth, coordinates messaging)          │              │
@@ -104,64 +105,62 @@ IQinsyt is a **neutral AI-powered research utility** delivered as a Chrome exten
 ```
 iqinsyt-extension/
 ├── public/
-│   ├── manifest.json          # Manifest V3 config
-│   ├── icons/
-│   │   ├── icon16.png
-│   │   ├── icon48.png
-│   │   └── icon128.png
-│   └── sidepanel.html         # Entry HTML for side panel
+│   ├── favicon.svg              # Browser/extension icon asset
+│   └── icons.svg                # Additional static icon asset bundle
 │
 ├── src/
 │   ├── background/
-│   │   └── service-worker.ts  # Background service worker
+│   │   └── index.ts             # Background service worker — message router + API bridge
 │   │
 │   ├── content/
-│   │   ├── content-script.ts  # Injected into host page
-│   │   └── detector.ts        # MutationObserver + DOM parser
+│   │   ├── content-script.ts    # Content script entrypoint — auto-detect on Kalshi + picker activation
+│   │   ├── picker.ts            # Interactive element picker (hover highlight → click → parse)
+│   │   └── parseElementText.ts  # Parses selected element text into DetectedMarket payload
 │   │
 │   ├── sidepanel/
-│   │   ├── index.tsx           # Side panel React entry point
-│   │   ├── App.tsx
-│   │   ├── components/
-│   │   │   ├── EventCard.tsx
-│   │   │   ├── ResearchOutput.tsx
-│   │   │   ├── SectionBlock.tsx
-│   │   │   ├── StatusBar.tsx
-│   │   │   ├── ManualInput.tsx
-│   │   │   └── ErrorState.tsx
-│   │   ├── hooks/
-│   │   │   ├── useEventDetection.ts
-│   │   │   ├── useInsightQuery.ts
-│   │   │   └── useAuth.ts
-│   │   └── styles/
-│   │       └── global.css
+│   │   ├── main.tsx             # React bootstrap entrypoint
+│   │   ├── App.tsx              # Reducer + provider root — phase-based UI composition
+│   │   ├── context.tsx          # AppContext and useAppContext helper
+│   │   └── index.html           # Side panel HTML shell
 │   │
 │   ├── api/
-│   │   └── client.ts          # Axios/fetch wrapper for backend calls
+│   │   ├── client.ts            # API runtime client + typed fetch errors
+│   │   └── types.ts             # API request/response contracts
 │   │
 │   ├── auth/
-│   │   └── token.ts           # JWT storage and refresh logic
+│   │   └── tokenManager.ts      # Chrome storage token handling + auto-refresh
+│   │
+│   ├── components/
+│   │   ├── StatusBar.tsx        # Top status indicator reflecting current phase
+│   │   ├── EventCard.tsx        # Detected event summary + analyse action
+│   │   ├── ManualInput.tsx      # Manual event input form (fallback when detection fails)
+│   │   ├── SectionBlock.tsx     # Expandable/collapsible research section block
+│   │   ├── ResearchOutput.tsx   # 7-section research output rendering + meta badges
+│   │   └── ErrorState.tsx       # Error state UI block with dismiss action
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.ts           # Auth/session hook — token check + plan sync
+│   │   ├── useEventDetection.ts # Message listener for detected events
+│   │   └── useInsightQuery.ts   # Analysis request/response hook
 │   │
 │   ├── shared/
-│   │   ├── types.ts            # Shared TypeScript interfaces
-│   │   ├── constants.ts
-│   │   └── messages.ts         # Chrome message type definitions
+│   │   └── types.ts             # Shared app/message/state/event contracts
 │   │
-│   └── utils/
-│       └── sanitize.ts         # Input sanitization helpers
+│   └── index.css                # Global design tokens + component styling
 │
-├── .env.example
-├── tsconfig.json
-├── webpack.config.js           # Or Vite config
-├── package.json
-└── architecture.md             # This file
+├── .env                         # VITE_BACKEND_URL=http://localhost:8080
+├── manifest.json                # Manifest V3 contract (at project root)
+├── package.json                 # Scripts and dependencies
+├── pnpm-lock.yaml               # pnpm lockfile
+├── vite.config.ts               # Vite + CRX build config
+└── tsconfig.json                # Root TypeScript config
 ```
 
 ---
 
 ## 4. Manifest V3 Setup
 
-`public/manifest.json` — every field below is required:
+`manifest.json` at project root — every field below is required:
 
 ```json
 {
@@ -178,62 +177,68 @@ iqinsyt-extension/
   ],
 
   "host_permissions": [
-    "<all_urls>"
+    "https://*.polymarket.com/*",
+    "https://*.kalshi.com/*",
+    "https://*.metaculus.com/*",
+    "https://*.manifold.markets/*",
+    "https://*.predictit.org/*",
+    "https://*.betfair.com/*",
+    "https://*.smarkets.com/*"
   ],
 
   "background": {
-    "service_worker": "background/service-worker.js",
+    "service_worker": "src/background/index.ts",
     "type": "module"
   },
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/content-script.js"],
+      "matches": [
+        "https://*.polymarket.com/*",
+        "https://*.kalshi.com/*",
+        "https://*.metaculus.com/*",
+        "https://*.manifold.markets/*",
+        "https://*.predictit.org/*",
+        "https://*.betfair.com/*",
+        "https://*.smarkets.com/*"
+      ],
+      "js": ["src/content/content-script.ts"],
       "run_at": "document_idle"
     }
   ],
 
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "src/sidepanel/index.html"
   },
 
   "action": {
-    "default_title": "Open IQinsyt",
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    }
-  },
-
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "default_title": "Open IQinsyt"
   }
 }
 ```
 
 **Key notes for the developer:**
 - `sidePanel` permission is required for the side panel API (Chrome 114+)
-- `host_permissions: <all_urls>` lets the content script run on any page — this is intentional (platform-agnostic)
+- `host_permissions` lists specific prediction market domains — the content script only runs on these sites
+- `scripting` permission is used to inject the content script into the active tab when the picker is activated
 - No `popup` is defined — the extension opens a side panel, never a popup
 - The background script is a **service worker** (MV3 requirement) — it cannot use `localStorage`, only `chrome.storage`
+- Entry points use `.ts` source paths; `@crxjs/vite-plugin` compiles them to `.js` in `dist/`
+- No `icons` block is defined yet — Chrome uses a default icon until icon assets are added
 
 ---
 
 ## 5. Frontend — Side Panel UI
 
 ### Technology
-- **React 18** + **TypeScript**
-- **Vite** (recommended) or Webpack for bundling
-- **CSS Modules** or **Tailwind CSS** for styling
-- No UI component library required — keep it lightweight
+- **React 19** + **TypeScript**
+- **Vite** + **@crxjs/vite-plugin** for extension bundling
+- **Babel** with **React Compiler** (`babel-plugin-react-compiler`) for automatic memoization
+- Plain CSS custom properties in `src/index.css` — no CSS Modules, no Tailwind, no UI component library
 
 ### Side Panel Entry Point
 
-`public/sidepanel.html`:
+`src/sidepanel/index.html`:
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -244,25 +249,29 @@ iqinsyt-extension/
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="sidepanel/index.js"></script>
+    <script type="module" src="main.tsx"></script>
   </body>
 </html>
 ```
 
 ### App Shell (`App.tsx`)
 
-The app has three states:
+The app has seven states:
 
 ```
 App
- ├── [no event detected]   → ManualInput component
- ├── [event detected]      → EventCard + "Analyse" button
- └── [result loaded]       → ResearchOutput (7 sections)
+ ├── [idle]              → "Pick element" button
+ ├── [picking]           → Instructions: "Click a market card"
+ ├── [manual]            → ManualInput + "Pick element instead" button
+ ├── [detected]          → EventCard + "Analyse" button
+ ├── [loading]           → Spinner + "Analysing event data..."
+ ├── [result]            → EventCard + ResearchOutput (7 sections)
+ └── [error]             → ErrorState with dismiss action
 ```
 
 ```tsx
 // src/sidepanel/App.tsx
-type AppState = 'idle' | 'detected' | 'loading' | 'result' | 'error';
+type AppPhase = 'idle' | 'picking' | 'detected' | 'loading' | 'result' | 'error' | 'manual';
 ```
 
 ### Component Breakdown
@@ -306,92 +315,122 @@ Each section renders as a collapsible `SectionBlock` with a title and plain-text
 
 ### How Detection Works
 
-The content script runs on every page the user visits. It uses two mechanisms:
+The content script runs on configured host pages (Polymarket, Kalshi, Metaculus, etc.). It uses two mechanisms:
 
-**Step 1 — MutationObserver (passive, automatic)**
+**Mode 1 — Kalshi Auto-Detect (passive, automatic)**
 
-```typescript
-// src/content/detector.ts
-
-const observer = new MutationObserver((mutations) => {
-  for (const mutation of mutations) {
-    if (mutation.type === 'childList' || mutation.type === 'characterData') {
-      const event = extractEventFromDOM();
-      if (event) {
-        sendEventToBackground(event);
-        observer.disconnect(); // stop watching once found
-      }
-    }
-  }
-});
-
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-  characterData: true
-});
-```
-
-**Step 2 — DOM Parsing (`extractEventFromDOM`)**
-
-The parser looks for event-like text using heuristics:
-- `<h1>`, `<h2>` tags containing vs / v / @ patterns (e.g., "Team A vs Team B")
-- `<title>` tag parsing as a fallback
-- Any element with data attributes like `data-event`, `data-match`, `data-fixture`
-- Text pattern matching: `"[Team/Player] vs [Team/Player]"`, `"[Event] on [Date]"`
+On `kalshi.com` detail pages, the content script auto-detects the market without user interaction:
 
 ```typescript
-function extractEventFromDOM(): DetectedEvent | null {
-  // Try headings first
-  const headings = document.querySelectorAll('h1, h2, h3');
-  for (const h of headings) {
-    const text = h.textContent?.trim();
-    if (text && /\bvs\.?\b|\bv\b|@/i.test(text)) {
-      return { title: text, source: window.location.hostname };
+// src/content/content-script.ts
+
+// Runs on initial load and on SPA navigation
+function tryAutoDetect(): void {
+  const market = detectKalshiDetailPage();
+  if (market) {
+    chrome.runtime.sendMessage({ type: 'MARKETS_DETECTED', payload: [market] });
+  }
+}
+
+if (window.location.hostname === 'kalshi.com') {
+  setTimeout(tryAutoDetect, 1500);
+  // Also re-detect on SPA route changes
+  new MutationObserver(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      setTimeout(tryAutoDetect, 1000);
     }
-  }
-  // Fallback to page title
-  const titleMatch = document.title.match(/(.+?\s+vs\.?\s+.+?)(\s*[-|]|$)/i);
-  if (titleMatch) {
-    return { title: titleMatch[1].trim(), source: window.location.hostname };
-  }
-  return null;
+  }).observe(document, { subtree: true, childList: true });
 }
 ```
 
-**Step 3 — Fallback Chain**
+The `detectKalshiDetailPage()` function in `parseElementText.ts` looks for:
+- An `<h1>` element with the market title (min 5 chars)
+- Outcome rows with percentage headers (`h2.typ-headline-x10` containing `\d+%`)
+- Volume information from `[class*="typ-body-x20"]` elements
+
+**Mode 2 — Interactive Element Picker (user-triggered)**
+
+When auto-detect is not available (non-Kalshi pages, or Kalshi listing pages), the user clicks "Pick element" in the side panel:
+
+```typescript
+// src/content/picker.ts
+
+export function activatePicker(): void {
+  // Inject highlight styles
+  // Add mouseover/mouseout/click/keydown listeners
+  // Show toast: "Select a betting market on the page"
+}
+```
+
+The picker workflow:
+1. Side panel dispatches `START_PICKING` → background → content script
+2. Content script calls `activatePicker()` — adds `mouseover`, `click`, `keydown` listeners
+3. On `mouseover`: walks up DOM tree to find market container, highlights with purple outline (`#aa3bff`)
+4. On `click`: parses the selected element via `parseElementText()`, sends `MARKETS_DETECTED` with payload
+5. On `Escape`: deactivates picker, sends `PICKER_CANCELLED`
+
+The picker includes a debug mode (`Ctrl+Shift+D`) that logs parsing details to console.
+
+**Element Parsing (`parseElementText`)**
+
+The parser in `parseElementText.ts` tries two strategies:
+
+1. **Kalshi-specific parser** — looks for `[data-testid="market-tile"]` elements, extracts title from `<h2>`, outcomes from `[aria-valuenow]` progress bars, volume from text matching `\$[\d,]+[kmb]?`
+2. **Generic text-based fallback** — scans `innerText` for percentage patterns (`\d{1,3}%`), extracts title from headings or first non-percentage line, pairs labels with probabilities
+
+Each parsed element produces a `DetectedMarket`:
+
+```typescript
+interface DetectedMarket {
+  id: string;              // slugified title, max 64 chars
+  title: string;           // e.g. "Will Bitcoin reach $100k by 2025?"
+  source: string;          // hostname, e.g. "kalshi.com"
+  url: string | null;      // current page URL
+  outcomes: DetectedOutcome[];  // [{ label: "Yes", probability: "65%" }, ...]
+  volume: string | null;   // e.g. "$1.2M"
+}
+```
+
+**Fallback Chain**
 
 ```
-Auto-detect (MutationObserver + DOM parse)
-    ↓ fails
-User highlights text on page → context menu or selection capture
-    ↓ fails
-Manual text input in side panel
+Kalshi auto-detect (URL-based, on detail pages)
+    ↓ not on Kalshi or no market found
+User clicks "Pick element" → interactive picker
+    ↓ picker click parses element
+Parse succeeds → MARKETS_DETECTED
+    ↓ parse fails
+DETECTION_FAILED → ManualInput shown in side panel
+    ↓ user types manually
+Manual submit → EVENT_DETECTED with source: 'manual'
 ```
-
-The content script sends the detected event to the background service worker via `chrome.runtime.sendMessage`. The background worker forwards it to the side panel.
 
 ### Chrome Messaging Flow
 
 ```
 Content Script  ──sendMessage──►  Background Service Worker
-                                         │
-                              chrome.runtime.sendMessage
-                                         │
-                                         ▼
-                                    Side Panel (React)
-                              listens via chrome.runtime.onMessage
+                                          │
+                               relay or handle
+                                          │
+                                          ▼
+                                     Side Panel (React)
+                               listens via chrome.runtime.onMessage
 ```
 
-Message types (defined in `src/shared/messages.ts`):
+Message types (defined in `src/shared/types.ts`):
 
 ```typescript
 type MessageType =
-  | 'EVENT_DETECTED'      // content script → background → side panel
-  | 'REQUEST_ANALYSIS'    // side panel → background → API
-  | 'ANALYSIS_RESULT'     // background → side panel
-  | 'DETECTION_FAILED'    // background → side panel (trigger manual input)
-  | 'AUTH_REQUIRED';      // background → side panel
+  | 'MARKETS_DETECTED'      // content script → background → side panel (auto or picker)
+  | 'EVENT_DETECTED'        // content script → background → side panel (legacy/generic)
+  | 'REQUEST_ANALYSIS'      // side panel → background → API
+  | 'ANALYSIS_RESULT'       // background → side panel
+  | 'ANALYSIS_ERROR'        // background → side panel (API call failed)
+  | 'DETECTION_FAILED'      // background → side panel (trigger manual input)
+  | 'AUTH_REQUIRED'         // background → side panel
+  | 'START_PICKER'          // side panel → background → content script
+  | 'PICKER_CANCELLED';     // content script → background → side panel
 
 interface ExtensionMessage {
   type: MessageType;
@@ -405,31 +444,37 @@ interface ExtensionMessage {
 
 ### API Client (`src/api/client.ts`)
 
-The extension communicates with the backend over HTTPS only. Use `fetch` (available in MV3 service workers) or Axios.
+The extension communicates with the backend over HTTPS only. Uses `fetch` (available in MV3 service workers).
 
 ```typescript
-const BASE_URL = process.env.BACKEND_URL; // e.g. https://api.iqinsyt.com
+const BASE_URL = import.meta.env.VITE_BACKEND_URL; // e.g. http://localhost:8080
 
-async function requestInsight(event: DetectedEvent, token: string): Promise<InsightResponse> {
-  const response = await fetch(`${BASE_URL}/v1/insight`, {
-    method: 'POST',
+async function authedFetch(path: string, init: RequestInit): Promise<Response> {
+  const token = await getAccessToken();
+  if (!token) throw new AuthError('No token');
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      ...init.headers,
     },
-    body: JSON.stringify({
-      eventTitle: event.title,
-      eventSource: event.source,
-      timestamp: Date.now(),
-    }),
-    signal: AbortSignal.timeout(12000), // client-side timeout (12s, backend has 8s)
   });
 
   if (response.status === 401) throw new AuthError('Session expired');
   if (response.status === 402) throw new SubscriptionError('Plan inactive');
   if (!response.ok) throw new ApiError(`Request failed: ${response.status}`);
 
-  return response.json();
+  return response;
+}
+```
+
+Input sanitization happens inline before sending:
+
+```typescript
+function sanitize(text: string): string {
+  return text.replace(/<[^>]*>/g, '').trim().slice(0, 500);
 }
 ```
 
@@ -825,29 +870,29 @@ The side panel is a standalone React app. Use React's built-in `useReducer` + `u
 
 ```typescript
 interface AppState {
-  phase: 'idle' | 'detected' | 'loading' | 'result' | 'error' | 'manual';
+  phase: AppPhase;                    // 'idle' | 'picking' | 'detected' | 'loading' | 'result' | 'error' | 'manual'
   detectedEvent: DetectedEvent | null;
   result: InsightResponse | null;
   error: string | null;
-  user: {
-    isAuthenticated: boolean;
-    plan: 'free' | 'starter' | 'pro' | null;
-  };
+  user: UserInfo;                     // { isAuthenticated: boolean; plan: 'free' | 'starter' | 'pro' | null }
 }
 ```
 
 ### State Transitions
 
 ```
-idle ──────────────────────► detected  (EVENT_DETECTED message)
-idle ──────────────────────► manual    (DETECTION_FAILED message)
+idle ──────────────────────► picking   (user clicks "Pick element")
+picking ───────────────────► detected  (MARKETS_DETECTED from picker click)
+picking ───────────────────► idle      (PICKER_CANCELLED via Escape key, no prior event)
+picking ───────────────────► detected  (PICKER_CANCELLED via Escape key, had prior event)
+idle ──────────────────────► manual    (MARKETS_DETECTED with empty payload)
 manual ────────────────────► loading   (user submits manual input)
 detected ──────────────────► loading   (user clicks Analyse)
 loading ────────────────────► result   (ANALYSIS_RESULT received)
-loading ────────────────────► error    (any error thrown)
+loading ────────────────────► error    (ANALYSIS_ERROR or SHOW_ERROR)
 result ─────────────────────► loading  (user clicks Re-run)
 error ──────────────────────► idle     (user dismisses error)
-any ────────────────────────► idle     (AUTH_REQUIRED → show login)
+any ────────────────────────► idle     (AUTH_REQUIRED → reset to initial state)
 ```
 
 ---
@@ -858,7 +903,7 @@ any ────────────────────────► 
 
 ```bash
 node >= 20.x
-npm >= 10.x   # or pnpm / yarn
+pnpm >= 9.x
 ```
 
 ### Initial Setup
@@ -866,39 +911,36 @@ npm >= 10.x   # or pnpm / yarn
 ```bash
 git clone <repo>
 cd iqinsyt-extension
-npm install
-cp .env.example .env
+pnpm install
 ```
 
-`.env` file:
+`.env` file (already present in repo):
 ```
-BACKEND_URL=https://api.iqinsyt.com
-# For local dev:
-# BACKEND_URL=http://localhost:3000
+VITE_BACKEND_URL=http://localhost:8080
 ```
 
 ### Build Commands
 
 ```bash
-# Development build (watch mode)
-npm run dev
+# Development build (watch mode with HMR)
+pnpm dev
 
 # Production build (outputs to /dist)
-npm run build
+pnpm build
 
 # Type check
-npm run typecheck
+pnpm -s tsc --noEmit
 
 # Lint
-npm run lint
+pnpm lint
 ```
 
 ### Vite Config for Chrome Extension
 
-Use the `vite-plugin-web-extension` or `@crxjs/vite-plugin` package — these handle the multi-entry-point build (background, content script, side panel) automatically.
+Uses `@crxjs/vite-plugin` for the multi-entry-point build and `@rolldown/plugin-babel` with `babel-plugin-react-compiler` for automatic React memoization:
 
 ```bash
-npm install -D @crxjs/vite-plugin
+pnpm add -D @crxjs/vite-plugin @rolldown/plugin-babel babel-plugin-react-compiler
 ```
 
 ```typescript
@@ -906,11 +948,17 @@ npm install -D @crxjs/vite-plugin
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { crx } from '@crxjs/vite-plugin';
-import manifest from './public/manifest.json';
+import { babel } from '@rolldown/plugin-babel';
+import manifest from './manifest.json';
 
 export default defineConfig({
   plugins: [
     react(),
+    babel({
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
+      babelHelpers: 'bundled',
+      plugins: [['babel-plugin-react-compiler']],
+    }),
     crx({ manifest }),
   ],
 });
@@ -920,12 +968,13 @@ This plugin:
 - Compiles `manifest.json` and all entry points in one pass
 - Handles hot reload for the side panel during development
 - Generates the correct `dist/` folder structure for Chrome
+- Rewrites output paths so `dist/` file names differ from source names
 
 ---
 
 ## 15. Loading the Extension in Chrome
 
-After running `npm run build`:
+After running `pnpm build`:
 
 1. Open Chrome → navigate to `chrome://extensions`
 2. Toggle **Developer mode** ON (top right)
@@ -938,7 +987,7 @@ After running `npm run build`:
 
 **For development (watch mode):**
 
-1. Run `npm run dev` — Vite watches for changes
+1. Run `pnpm dev` — Vite watches for changes
 2. After each change, go to `chrome://extensions` → click the **refresh icon** on the IQinsyt card
 3. The side panel auto-refreshes on React changes (hot reload) without needing to reload the whole extension
 

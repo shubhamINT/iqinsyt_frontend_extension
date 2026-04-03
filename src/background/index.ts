@@ -5,10 +5,23 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   switch (message.type) {
+    case 'MARKETS_DETECTED':
     case 'EVENT_DETECTED':
+    case 'DETECTION_FAILED':
+    case 'PICKER_CANCELLED':
       // Relay from content script to side panel
       chrome.runtime.sendMessage(message).catch(() => {
         // Side panel not open — ignore
+      });
+      break;
+
+    case 'START_PICKER':
+      // Forward to the active tab's content script
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (tabId != null) {
+          chrome.tabs.sendMessage(tabId, { type: 'START_PICKER' }).catch(() => {});
+        }
       });
       break;
 

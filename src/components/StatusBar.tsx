@@ -2,7 +2,8 @@ import { useAppContext } from '../sidepanel/context.tsx'
 
 const STATE_LABELS: Record<string, string> = {
   idle:     'Ready',
-  detected: 'Event detected',
+  picking:  'Waiting for selection',
+  detected: 'Event selected',
   manual:   'Enter manually',
   loading:  'Analysing...',
   result:   'Done',

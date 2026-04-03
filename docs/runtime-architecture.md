@@ -4,7 +4,7 @@
 
 The extension runs in three isolated contexts, each with separate capabilities.
 
-- `content` (`src/content/content-script.ts`, `src/content/detector.ts`): reads host-page DOM, detects events, emits detection messages.
+- `content` (`src/content/content-script.ts`, `src/content/picker.ts`, `src/content/parseElementText.ts`): handles interactive element picking, parses selected DOM text into a market payload, emits detection messages.
 - `background` (`src/background/index.ts`): service worker that routes messages and performs privileged API orchestration.
 - `sidepanel` (`src/sidepanel/*`): React UI state machine and rendering layer.
 
@@ -19,16 +19,19 @@ This separation is required by Manifest V3 and is also the reason all communicat
 ## Responsibility Split
 
 - Content script:
-  - Parse DOM using heuristic selectors and title patterns.
-  - Stop observing once an event is found.
-  - Emit `DETECTION_FAILED` after timeout when no event is found.
+  - Wait for `START_PICKER` and activate an interactive picker on the current page.
+  - Highlight candidate elements under the cursor using capture-phase listeners.
+  - Resolve a candidate container via ancestor scoring/market-indicator heuristics.
+  - Parse the selected candidate into one `DetectedMarket` via `parseElementText`.
+  - Emit `MARKETS_DETECTED` (single-item array), `DETECTION_FAILED`, or `PICKER_CANCELLED`.
 - Background service worker:
   - Enable open-on-action side panel behavior.
-  - Relay `EVENT_DETECTED` messages to side panel listeners.
+  - Relay picker detection messages (`MARKETS_DETECTED`, `DETECTION_FAILED`, `PICKER_CANCELLED`) and `EVENT_DETECTED` to side panel listeners.
+  - Forward `START_PICKER` from side panel to active-tab content script.
   - Handle `REQUEST_ANALYSIS` by calling API client.
   - Normalize error outcomes into message types the UI can consume.
 - Side panel:
-  - Own local reducer state and phase transitions.
+  - Own local reducer state (`phase`, single `detectedEvent`, `result`, `error`, `user`) and phase transitions.
   - Subscribe to runtime messages via hooks.
   - Trigger analysis requests through background, never direct privileged orchestration.
 
@@ -36,4 +39,5 @@ This separation is required by Manifest V3 and is also the reason all communicat
 
 - Background is non-persistent (MV3 service worker lifecycle), so message handlers must stay stateless and deterministic.
 - Side panel hooks attach listeners on mount and remove listeners on unmount.
-- Content detection performs immediate parse first, then MutationObserver, then timeout fallback.
+- Picker activation is idempotent (`activatePicker()` returns early if already active).
+- While picker is active, content script injects transient highlight/toast styles and capture-phase listeners; all are removed on selection/cancel.

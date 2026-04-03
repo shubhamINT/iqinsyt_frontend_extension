@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "IQinsyt",
   "version": "1.0.0",
-  "description": "Neutral AI-powered research for sports and prediction events.",
+  "description": "Neutral AI-powered research for sports and current events.",
 
   "permissions": [
     "sidePanel",
@@ -12,7 +12,13 @@
   ],
 
   "host_permissions": [
-    "<all_urls>"
+    "https://*.polymarket.com/*",
+    "https://*.kalshi.com/*",
+    "https://*.metaculus.com/*",
+    "https://*.manifold.markets/*",
+    "https://*.predictit.org/*",
+    "https://*.betfair.com/*",
+    "https://*.smarkets.com/*"
   ],
 
   "background": {
@@ -22,7 +28,15 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://*.polymarket.com/*",
+        "https://*.kalshi.com/*",
+        "https://*.metaculus.com/*",
+        "https://*.manifold.markets/*",
+        "https://*.predictit.org/*",
+        "https://*.betfair.com/*",
+        "https://*.smarkets.com/*"
+      ],
       "js": ["src/content/content-script.ts"],
       "run_at": "document_idle"
     }

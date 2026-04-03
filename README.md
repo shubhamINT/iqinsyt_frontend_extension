@@ -131,8 +131,9 @@ iqinsyt_frontend_extension/
 │   ├── background/
 │   │   └── index.ts         # Background message router + API bridge
 │   ├── content/
-│   │   ├── detector.ts      # DOM heuristics + mutation observer detection
-│   │   └── content-script.ts # Content script entrypoint
+│   │   ├── content-script.ts # Content script entrypoint
+│   │   ├── parseElementText.ts # Extract detected market data from selected element text
+│   │   └── picker.ts        # Interactive element picker (highlight/click/cancel)
 │   ├── assets/              # Reserved local asset folder (currently empty)
 │   ├── components/
 │   │   ├── ErrorState.tsx   # Error state UI block
@@ -222,8 +223,9 @@ src/
 ├── background/
 │   └── index.ts
 ├── content/
-│   ├── detector.ts
-│   └── content-script.ts
+│   ├── content-script.ts
+│   ├── parseElementText.ts
+│   └── picker.ts
 ├── components/
 │   ├── ErrorState.tsx
 │   ├── EventCard.tsx
@@ -256,9 +258,10 @@ src/
 | `src/background/` | Dir | Background service worker code. Centralized privileged extension logic lives here. |
 | `src/background/index.ts` | File | Background service worker routing layer: relays detection and triggers analysis fetch flow. |
 | `src/content/` | Dir | Content-script layer for webpage context interaction. |
-| `src/content/content-script.ts` | File | Content script entrypoint that boots detector logic on matched pages. |
-| `src/content/detector.ts` | File | MutationObserver + DOM heuristic detector that emits detected events to background. |
-| `src/components/` | Dir | Side panel presentation layer for status, event, manual input, output, and errors. |
+| `src/content/content-script.ts` | File | Content script entrypoint that listens for `START_PICKER` and activates page picking. |
+| `src/content/picker.ts` | File | Interactive picker that highlights candidates, handles click/cancel, and emits detection messages. |
+| `src/content/parseElementText.ts` | File | Parses selected element text into a `DetectedMarket` payload (`title`, `outcomes`, `volume`, `source`, `url`). |
+| `src/components/` | Dir | Side panel presentation layer for status, selected event, manual input, output, and errors. |
 | `src/components/StatusBar.tsx` | File | Header/status component reflecting current phase and loading indicator. |
 | `src/components/EventCard.tsx` | File | Event summary card with action button to trigger analysis. |
 | `src/components/ManualInput.tsx` | File | Manual entry form fallback when no event is auto-detected. |
@@ -290,7 +293,7 @@ src/
 
 - `manifest.json` declares extension permissions and execution surfaces.
 - `background` service worker handles privileged and long-lived orchestration.
-- `content script` runs in matching webpages for detection.
+- `content script` runs on configured host domains and performs user-triggered element picking.
 - `side panel` is the user-facing React interface.
 
 ## Why Manifest and Entrypoints Are Set This Way
@@ -316,7 +319,7 @@ As of now, Phases 1 through 9 are implemented in the repository:
 - Folder and entrypoint skeleton is present.
 - Shared API and cross-context type contracts are present (`src/api/types.ts`, `src/shared/types.ts`).
 - Auth/token manager and API client modules are present (`src/auth/tokenManager.ts`, `src/api/client.ts`).
-- Background message routing and detector logic are present (`src/background/index.ts`, `src/content/detector.ts`, `src/content/content-script.ts`).
+- Background message routing and picker logic are present (`src/background/index.ts`, `src/content/content-script.ts`, `src/content/picker.ts`, `src/content/parseElementText.ts`) with `MARKETS_DETECTED` relay support.
 - Reducer/context state foundation is present (`src/sidepanel/App.tsx`, `src/sidepanel/context.tsx`).
 - Hook modules are present (`src/hooks/useAuth.ts`, `src/hooks/useEventDetection.ts`, `src/hooks/useInsightQuery.ts`).
 - UI component modules are present (`src/components/StatusBar.tsx`, `src/components/EventCard.tsx`, `src/components/ManualInput.tsx`, `src/components/SectionBlock.tsx`, `src/components/ResearchOutput.tsx`, `src/components/ErrorState.tsx`).

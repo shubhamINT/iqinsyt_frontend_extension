@@ -1,26 +1,34 @@
 # Data Flow
 
-## Happy Path: Auto-Detection to Result
+## Happy Path: Picker Selection to Result
 
 ```mermaid
 sequenceDiagram
+  participant User as User
   participant Page as Host Page DOM
   participant Content as Content Script
   participant BG as Background Worker
   participant API as Backend API
   participant Panel as Side Panel UI
 
-  Content->>Page: Read headings/data attributes/title
-  Content->>BG: EVENT_DETECTED {title, source}
-  BG->>Panel: EVENT_DETECTED
-  Panel->>BG: REQUEST_ANALYSIS
+  User->>Panel: Click "Pick element"
+  Panel->>Panel: phase = picking
+  Panel->>BG: START_PICKER
+  BG->>Content: START_PICKER (active tab)
+  Content->>Page: Inject picker style + attach capture listeners
+  User->>Page: Hover and click market-like element
+  Content->>Content: parseElementText(candidate)
+  Content->>BG: MARKETS_DETECTED [market]
+  BG->>Panel: MARKETS_DETECTED
+  Panel->>Panel: phase = detected, detectedEvent = markets[0]
+  Panel->>BG: REQUEST_ANALYSIS {title, source}
   BG->>API: POST /v1/insight (Bearer token)
   API-->>BG: InsightResponse
   BG-->>Panel: ANALYSIS_RESULT
   Panel->>Panel: phase = result
 ```
 
-## Detection Fallback: Manual Input Path
+## Picker Failure Fallback: Manual Input Path
 
 ```mermaid
 sequenceDiagram
@@ -28,12 +36,26 @@ sequenceDiagram
   participant BG as Background Worker
   participant Panel as Side Panel UI
 
-  Content->>Content: MutationObserver runs
-  Content->>Content: 5s timeout expires with no match
+  Content->>Content: No candidate OR parseElementText returns null
   Content->>BG: DETECTION_FAILED
   Panel->>Panel: phase = manual
   Panel->>BG: REQUEST_ANALYSIS (manual event)
   BG-->>Panel: ANALYSIS_RESULT | ANALYSIS_ERROR
+```
+
+## Picker Cancel Path
+
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant Content as Content Script
+  participant BG as Background Worker
+  participant Panel as Side Panel UI
+
+  User->>Content: Press Esc while picker is active
+  Content->>BG: PICKER_CANCELLED
+  BG->>Panel: PICKER_CANCELLED
+  Panel->>Panel: phase = detected (if prior event) else idle
 ```
 
 ## Auth and Error Mapping Path
@@ -70,6 +92,9 @@ sequenceDiagram
 ## Checks and Guards in Flow
 
 - Event text is sanitized before request (`<...>` tags stripped, trimmed, max 500 chars).
+- Picker click interception uses capture phase and prevents default page click action while active.
+- Candidate lookup climbs ancestors and scores market-like containers using `%` patterns and text heuristics.
+- `parseElementText()` requires a valid title and at least one parsed outcome before emitting `MARKETS_DETECTED`.
 - JWT expiry is checked before each authed request; refresh is attempted if near expiry (`< 60s`).
 - Request timeout is enforced (`AbortSignal.timeout(12_000)`).
 - UI receives normalized message types, not raw exceptions.

@@ -1,12 +1,15 @@
 // ─── Chrome Messaging ────────────────────────────────────────────────────────
 
 export type MessageType =
+  | 'MARKETS_DETECTED' // content script → background → side panel
   | 'EVENT_DETECTED'   // content script → background → side panel
   | 'REQUEST_ANALYSIS' // side panel → background → API
   | 'ANALYSIS_RESULT'  // background → side panel
   | 'ANALYSIS_ERROR'   // background → side panel (API call failed)
   | 'DETECTION_FAILED' // background → side panel (trigger manual input)
-  | 'AUTH_REQUIRED';   // background → side panel
+  | 'AUTH_REQUIRED'    // background → side panel
+  | 'START_PICKER'     // side panel → background → content script
+  | 'PICKER_CANCELLED'; // content script → background → side panel
 
 export interface ExtensionMessage {
   type: MessageType;
@@ -15,14 +18,32 @@ export interface ExtensionMessage {
 
 // ─── Event Detection ─────────────────────────────────────────────────────────
 
+export interface DetectedOutcome {
+  label: string;
+  probability: string | null;
+}
+
+export interface DetectedMarket {
+  id: string;
+  title: string;
+  source: string;
+  url: string | null;
+  outcomes: DetectedOutcome[];
+  volume: string | null;
+}
+
 export interface DetectedEvent {
   title: string;   // e.g. "Manchester City vs Arsenal"
-  source: string;  // hostname, e.g. "sportsbet.com.au"
+  source: string;  // hostname, e.g. "polymarket.com"
+  id?: string;
+  url?: string | null;
+  outcomes?: DetectedOutcome[];
+  volume?: string | null;
 }
 
 // ─── App State ────────────────────────────────────────────────────────────────
 
-export type AppPhase = 'idle' | 'detected' | 'loading' | 'result' | 'error' | 'manual';
+export type AppPhase = 'idle' | 'picking' | 'detected' | 'loading' | 'result' | 'error' | 'manual';
 
 export interface UserInfo {
   isAuthenticated: boolean;
@@ -42,6 +63,7 @@ export interface AppState {
 import type { InsightResponse } from '../api/types.ts'
 
 export type AppAction =
+  | { type: 'MARKETS_DETECTED'; payload: DetectedMarket[] }
   | { type: 'EVENT_DETECTED'; payload: DetectedEvent }
   | { type: 'DETECTION_FAILED' }
   | { type: 'REQUEST_ANALYSIS' }
@@ -49,4 +71,6 @@ export type AppAction =
   | { type: 'SHOW_ERROR'; payload: string }
   | { type: 'DISMISS_ERROR' }
   | { type: 'AUTH_REQUIRED' }
-  | { type: 'SET_USER'; payload: UserInfo };
+  | { type: 'SET_USER'; payload: UserInfo }
+  | { type: 'START_PICKING' }
+  | { type: 'PICKER_CANCELLED' };

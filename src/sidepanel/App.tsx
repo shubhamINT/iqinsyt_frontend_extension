@@ -1,6 +1,6 @@
 import { useReducer } from 'react'
 import { AppContext, useAppContext } from './context.tsx'
-import type { AppState, AppAction, DetectedEvent } from '../shared/types.ts'
+import type { AppState, AppAction, DetectedEvent, DetectedMarket } from '../shared/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
 import { useEventDetection } from '../hooks/useEventDetection.ts'
 import { useInsightQuery } from '../hooks/useInsightQuery.ts'
@@ -22,13 +22,56 @@ const initialState: AppState = {
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
+function toDetectedEvent(market: DetectedMarket): DetectedEvent {
+  return {
+    id: market.id,
+    title: market.title,
+    source: market.source,
+    url: market.url,
+    outcomes: market.outcomes,
+    volume: market.volume,
+  };
+}
+
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
+    case 'MARKETS_DETECTED': {
+      const markets = action.payload;
+      if (!markets.length) {
+        return { ...state, phase: 'manual', detectedEvent: null, result: null, error: null };
+      }
+      return {
+        ...state,
+        phase: 'detected',
+        detectedEvent: toDetectedEvent(markets[0]),
+        result: null,
+        error: null,
+      };
+    }
+
     case 'EVENT_DETECTED':
-      return { ...state, phase: 'detected', detectedEvent: action.payload, error: null };
+      return {
+        ...state,
+        phase: 'detected',
+        detectedEvent: action.payload,
+        result: null,
+        error: null,
+      };
 
     case 'DETECTION_FAILED':
-      return { ...state, phase: 'manual' };
+      return {
+        ...state,
+        phase: 'manual',
+        detectedEvent: null,
+        result: null,
+        error: null,
+      };
+
+    case 'START_PICKING':
+      return { ...state, phase: 'picking' };
+
+    case 'PICKER_CANCELLED':
+      return { ...state, phase: state.detectedEvent ? 'detected' : 'idle' };
 
     case 'REQUEST_ANALYSIS':
       return { ...state, phase: 'loading', error: null };
@@ -61,8 +104,14 @@ function PanelContent() {
 
   const { phase, detectedEvent, result, error } = state;
 
+  function handleStartPicking() {
+    dispatch({ type: 'START_PICKING' });
+    chrome.runtime.sendMessage({ type: 'START_PICKER' }).catch(() => {});
+  }
+
   function handleAnalyse() {
-    if (detectedEvent) triggerAnalysis(detectedEvent);
+    if (!detectedEvent) return;
+    triggerAnalysis(detectedEvent);
   }
 
   function handleManualSubmit(title: string) {
@@ -86,15 +135,35 @@ function PanelContent() {
 
         {phase === 'idle' && (
           <div className="iq-idle">
-            <p className="iq-idle__title">Watching for events</p>
+            <p className="iq-idle__title">Ready to analyse</p>
             <p className="iq-idle__sub">
-              Navigate to a sports or prediction market page and IQinsyt will detect the event automatically.
+              Point to event content on the page to get started.
+            </p>
+            <button className="iq-btn iq-btn--primary" onClick={handleStartPicking}>
+              Select element
+            </button>
+          </div>
+        )}
+
+        {phase === 'picking' && (
+          <div className="iq-idle">
+            <p className="iq-idle__title">Click an event card</p>
+            <p className="iq-idle__sub">
+              Hover to highlight an element, then click to select it. Press Esc to cancel.
             </p>
           </div>
         )}
 
         {phase === 'manual' && (
-          <ManualInput onSubmit={handleManualSubmit} />
+          <>
+            <ManualInput onSubmit={handleManualSubmit} />
+            <div style={{ padding: '0 16px 16px' }}>
+              <button className="iq-btn iq-btn--ghost" onClick={handleStartPicking}
+                style={{ width: '100%' }}>
+                Select element instead
+              </button>
+            </div>
+          </>
         )}
 
         {phase === 'detected' && detectedEvent && (

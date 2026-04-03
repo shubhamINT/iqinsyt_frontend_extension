@@ -2,7 +2,7 @@
 
 export interface InsightRequest {
   eventTitle: string;   // e.g. "Manchester City vs Arsenal"
-  eventSource: string;  // hostname, e.g. "sportsbet.com.au"
+  eventSource: string;  // hostname, e.g. "polymarket.com"
   timestamp: number;    // Unix ms
 }
 

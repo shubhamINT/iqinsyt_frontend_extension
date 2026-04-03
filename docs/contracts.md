@@ -5,16 +5,37 @@
 Defined in `src/shared/types.ts`.
 
 - `EVENT_DETECTED`: `payload` is `DetectedEvent`
+- `MARKETS_DETECTED`: `payload` is `DetectedMarket[]`
 - `REQUEST_ANALYSIS`: `payload` is `DetectedEvent`
 - `ANALYSIS_RESULT`: `payload` is `InsightResponse`
 - `ANALYSIS_ERROR`: `payload` is user-facing error message string
 - `DETECTION_FAILED`: no payload
 - `AUTH_REQUIRED`: no payload
+- `START_PICKER`: no payload
+- `PICKER_CANCELLED`: no payload
+
+Notes:
+
+- Picker success currently emits `MARKETS_DETECTED` with a single-item array: `[market]`.
+- The reducer uses only the first detected market (`payload[0]`) as `detectedEvent`.
+
+`DetectedMarket` shape:
+
+- `id: string`
+- `title: string`
+- `source: string`
+- `url: string | null`
+- `outcomes: { label: string; probability: string | null }[]`
+- `volume: string | null`
 
 `DetectedEvent` shape:
 
 - `title: string`
 - `source: string`
+- `id?: string`
+- `url?: string | null`
+- `outcomes?: { label: string; probability: string | null }[]`
+- `volume?: string | null`
 
 ## API Contract Used by Frontend
 
@@ -42,6 +63,9 @@ Defined in `src/api/types.ts` and consumed by `src/api/client.ts`.
   - `402` -> `SubscriptionError`
   - other non-2xx -> `ApiError`
 - `fetchInsight()` sets 12s timeout.
+- Picker candidate selection uses ancestor scoring plus market indicators (percentages/outcome-like text).
+- `parseElementText()` requires non-empty text, a valid title, and at least one parsed outcome.
+- Picker emits `DETECTION_FAILED` when no candidate is found or parsing fails.
 - Background maps errors to UI-safe messages/events:
   - `AuthError` -> `AUTH_REQUIRED`
   - `SubscriptionError` -> `ANALYSIS_ERROR` with plan-upgrade message

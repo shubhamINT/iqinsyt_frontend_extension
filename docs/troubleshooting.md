@@ -4,9 +4,11 @@
 
 Checks:
 
-- Confirm content script is injected on the page (`manifest.json` matches `<all_urls>`).
-- Confirm detection selectors can match the page DOM (`h1/h2/h3`, `[data-event]`, `[data-match]`, `[data-fixture]`, or title pattern).
-- Wait for the 5-second timeout path and verify `DETECTION_FAILED` is emitted.
+- Confirm content script is injected on one of the configured hosts in `manifest.json` (`*.polymarket.com`, `*.kalshi.com`, `*.metaculus.com`, `*.manifold.markets`, `*.predictit.org`, `*.betfair.com`, `*.smarkets.com`).
+- Click "Pick element" in the side panel and confirm status changes to `Waiting for selection`.
+- Verify `START_PICKER` is forwarded by background to the active tab content script.
+- Hover over a market-like block (contains percentages and outcome text) and confirm highlight outline appears.
+- After click, verify picker emits either `MARKETS_DETECTED` (success) or `DETECTION_FAILED` (fallback to manual).
 
 Likely outcome:
 
@@ -44,7 +46,9 @@ Checks:
 
 ## Message Handling Debug Path
 
-- Content emit: `src/content/detector.ts`
+- Content script message entry: `src/content/content-script.ts`
+- Picker orchestration and candidate matching: `src/content/picker.ts`
+- Element text parser: `src/content/parseElementText.ts`
 - Background relay/orchestration: `src/background/index.ts`
 - Side panel listeners: `src/hooks/useEventDetection.ts`, `src/hooks/useInsightQuery.ts`
 - Reducer transitions: `src/sidepanel/App.tsx`
