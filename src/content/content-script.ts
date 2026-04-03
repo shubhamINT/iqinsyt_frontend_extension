@@ -25,7 +25,12 @@ if (window.location.hostname === 'kalshi.com') {
 
 // ─── Manual picker ───────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message: { type: string }) => {
+chrome.runtime.onMessage.addListener((message: { type: string }, _sender, sendResponse) => {
+  if (message.type === 'PING_CONTENT_SCRIPT') {
+    sendResponse({ ok: true });
+    return;
+  }
+
   if (message.type === 'START_PICKER') {
     activatePicker();
   }

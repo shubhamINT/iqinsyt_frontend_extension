@@ -9,7 +9,9 @@ export type MessageType =
   | 'DETECTION_FAILED' // background → side panel (trigger manual input)
   | 'AUTH_REQUIRED'    // background → side panel
   | 'START_PICKER'     // side panel → background → content script
-  | 'PICKER_CANCELLED'; // content script → background → side panel
+  | 'PICKER_CANCELLED' // content script → background → side panel
+  | 'REQUEST_SITE_AUTH_STATUS' // side panel → background
+  | 'SITE_AUTH_STATUS'; // background → side panel
 
 export interface ExtensionMessage {
   type: MessageType;
@@ -43,6 +45,8 @@ export interface DetectedEvent {
 
 // ─── App State ────────────────────────────────────────────────────────────────
 
+import type { InsightResponse } from '../api/types.ts'
+
 export type AppPhase = 'idle' | 'picking' | 'detected' | 'loading' | 'result' | 'error' | 'manual';
 
 export interface UserInfo {
@@ -55,12 +59,11 @@ export interface AppState {
   detectedEvent: DetectedEvent | null;
   result: InsightResponse | null;
   error: string | null;
+  isSiteAuthorized: boolean | null;
   user: UserInfo;
 }
 
 // ─── App Actions (useReducer) ─────────────────────────────────────────────────
-
-import type { InsightResponse } from '../api/types.ts'
 
 export type AppAction =
   | { type: 'MARKETS_DETECTED'; payload: DetectedMarket[] }
@@ -73,4 +76,5 @@ export type AppAction =
   | { type: 'AUTH_REQUIRED' }
   | { type: 'SET_USER'; payload: UserInfo }
   | { type: 'START_PICKING' }
-  | { type: 'PICKER_CANCELLED' };
+  | { type: 'PICKER_CANCELLED' }
+  | { type: 'SET_SITE_AUTH_STATUS'; payload: boolean };

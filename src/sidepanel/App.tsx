@@ -1,4 +1,4 @@
-import { useReducer } from 'react'
+import { useEffect, useReducer } from 'react'
 import { AppContext, useAppContext } from './context.tsx'
 import type { AppState, AppAction, DetectedEvent, DetectedMarket } from '../shared/types.ts'
 import { useAuth } from '../hooks/useAuth.ts'
@@ -17,6 +17,7 @@ const initialState: AppState = {
   detectedEvent: null,
   result: null,
   error: null,
+  isSiteAuthorized: null,
   user: { isAuthenticated: false, plan: null },
 };
 
@@ -90,6 +91,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_USER':
       return { ...state, user: action.payload };
+
+    case 'SET_SITE_AUTH_STATUS':
+      return {
+        ...state,
+        isSiteAuthorized: action.payload,
+        phase: !action.payload && state.phase === 'picking'
+          ? (state.detectedEvent ? 'detected' : 'idle')
+          : state.phase,
+      };
   }
 }
 
@@ -102,9 +112,19 @@ function PanelContent() {
   useEventDetection();
   useAuth();
 
-  const { phase, detectedEvent, result, error } = state;
+  const { phase, detectedEvent, result, error, isSiteAuthorized } = state;
+
+  useEffect(() => {
+    const requestStatus = () => {
+      chrome.runtime.sendMessage({ type: 'REQUEST_SITE_AUTH_STATUS' }).catch(() => {});
+    };
+    requestStatus();
+    const timer = window.setInterval(requestStatus, 1500);
+    return () => window.clearInterval(timer);
+  }, []);
 
   function handleStartPicking() {
+    if (isSiteAuthorized !== true) return;
     dispatch({ type: 'START_PICKING' });
     chrome.runtime.sendMessage({ type: 'START_PICKER' }).catch(() => {});
   }
@@ -139,9 +159,13 @@ function PanelContent() {
             <p className="iq-idle__sub">
               Point to event content on the page to get started.
             </p>
-            <button className="iq-btn iq-btn--primary" onClick={handleStartPicking}>
-              Select element
-            </button>
+            {isSiteAuthorized === false ? (
+              <p className="iq-site-auth__notice">You are not authorized on this website.</p>
+            ) : (
+              <button className="iq-btn iq-btn--primary" onClick={handleStartPicking}>
+                Select element
+              </button>
+            )}
           </div>
         )}
 
@@ -158,16 +182,25 @@ function PanelContent() {
           <>
             <ManualInput onSubmit={handleManualSubmit} />
             <div style={{ padding: '0 16px 16px' }}>
-              <button className="iq-btn iq-btn--ghost" onClick={handleStartPicking}
-                style={{ width: '100%' }}>
-                Select element instead
-              </button>
+              {isSiteAuthorized === false ? (
+                <p className="iq-site-auth__notice">You are not authorized on this website.</p>
+              ) : (
+                <button className="iq-btn iq-btn--ghost" onClick={handleStartPicking}
+                  style={{ width: '100%' }}>
+                  Select element instead
+                </button>
+              )}
             </div>
           </>
         )}
 
         {phase === 'detected' && detectedEvent && (
-          <EventCard event={detectedEvent} onAnalyse={handleAnalyse} />
+          <EventCard
+            event={detectedEvent}
+            onAnalyse={handleAnalyse}
+            onPickAnotherEvent={handleStartPicking}
+            canPickAnotherEvent={isSiteAuthorized === true}
+          />
         )}
 
         {phase === 'loading' && (
@@ -179,7 +212,12 @@ function PanelContent() {
 
         {phase === 'result' && result && detectedEvent && (
           <>
-            <EventCard event={detectedEvent} onAnalyse={handleRerun} />
+            <EventCard
+              event={detectedEvent}
+              onAnalyse={handleRerun}
+              onPickAnotherEvent={handleStartPicking}
+              canPickAnotherEvent={isSiteAuthorized === true}
+            />
             <ResearchOutput response={result} onRerun={handleRerun} />
           </>
         )}

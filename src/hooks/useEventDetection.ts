@@ -15,6 +15,8 @@ export function useEventDetection() {
         dispatch({ type: 'DETECTION_FAILED' });
       } else if (message.type === 'PICKER_CANCELLED') {
         dispatch({ type: 'PICKER_CANCELLED' });
+      } else if (message.type === 'SITE_AUTH_STATUS') {
+        dispatch({ type: 'SET_SITE_AUTH_STATUS', payload: Boolean(message.payload) });
       }
     }
 

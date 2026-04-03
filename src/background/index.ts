@@ -20,9 +20,19 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs[0]?.id;
         if (tabId != null) {
-          chrome.tabs.sendMessage(tabId, { type: 'START_PICKER' }).catch(() => {});
+          chrome.tabs.sendMessage(tabId, { type: 'START_PICKER' }).catch(() => {
+            chrome.runtime.sendMessage({ type: 'SITE_AUTH_STATUS', payload: false }).catch(() => {});
+            chrome.runtime.sendMessage({ type: 'PICKER_CANCELLED' }).catch(() => {});
+          });
+        } else {
+          chrome.runtime.sendMessage({ type: 'SITE_AUTH_STATUS', payload: false }).catch(() => {});
+          chrome.runtime.sendMessage({ type: 'PICKER_CANCELLED' }).catch(() => {});
         }
       });
+      break;
+
+    case 'REQUEST_SITE_AUTH_STATUS':
+      broadcastSiteAuthStatus().catch(() => {});
       break;
 
     case 'REQUEST_ANALYSIS':
@@ -45,4 +55,22 @@ async function handleAnalysis(event: DetectedEvent): Promise<void> {
       chrome.runtime.sendMessage({ type: 'ANALYSIS_ERROR', payload: message }).catch(() => {});
     }
   }
+}
+
+async function checkActiveTabAuthorized(): Promise<boolean> {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabId = tabs[0]?.id;
+  if (tabId == null) return false;
+
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'PING_CONTENT_SCRIPT' });
+    return Boolean((response as { ok?: boolean } | undefined)?.ok);
+  } catch {
+    return false;
+  }
+}
+
+async function broadcastSiteAuthStatus(): Promise<void> {
+  const isAuthorized = await checkActiveTabAuthorized();
+  chrome.runtime.sendMessage({ type: 'SITE_AUTH_STATUS', payload: isAuthorized }).catch(() => {});
 }

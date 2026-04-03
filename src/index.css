@@ -180,6 +180,24 @@ body {
   margin: 0 0 16px;
 }
 
+.iq-event-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iq-site-auth__notice {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  text-align: center;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
 /* ─── Market List ───────────────────────────────────────────────────────────── */
 
 .iq-market-list {

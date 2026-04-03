@@ -52,12 +52,14 @@ IQinsyt is a **neutral AI-powered research utility** delivered as a Chrome exten
 │        │                                                        │
 │        │  Kalshi auto-detect (SPA route observer)               │
 │        │  Interactive element picker (user-triggered)            │
+│        │  PING_CONTENT_SCRIPT (site auth check)                  │
 │        ▼                                                        │
 │   Content Script  ──────────────────────►  Side Panel UI       │
 │   (detection + parsing)    Chrome messaging  (React/TypeScript)  │
 │                                                  │              │
 │   Background Service Worker                      │              │
-│   (manages auth, coordinates messaging)          │              │
+│   (manages auth, coordinates messaging,          │              │
+│    monitors tab changes, broadcasts site auth)   │              │
 └──────────────────────────────────────────────────┼─────────────┘
                                                    │
                                           HTTPS + JWT
@@ -113,9 +115,12 @@ iqinsyt-extension/
 │   │   └── index.ts             # Background service worker — message router + API bridge
 │   │
 │   ├── content/
-│   │   ├── content-script.ts    # Content script entrypoint — auto-detect on Kalshi + picker activation
+│   │   ├── content-script.ts    # Content script entrypoint — auto-detect on Kalshi + picker + PING handler
 │   │   ├── picker.ts            # Interactive element picker (hover highlight → click → parse)
-│   │   └── parseElementText.ts  # Parses selected element text into DetectedMarket payload
+│   │   └── sites/
+│   │       └── kalshi/
+│   │           ├── autoDetect.ts       # Auto-detect market on Kalshi detail pages
+│   │           └── parseMarket.ts      # Parse Kalshi listing tiles and detail pages
 │   │
 │   ├── sidepanel/
 │   │   ├── main.tsx             # React bootstrap entrypoint
@@ -280,7 +285,7 @@ type AppPhase = 'idle' | 'picking' | 'detected' | 'loading' | 'result' | 'error'
 |---|---|
 | `EventCard` | Displays the detected event name and source page |
 | `ManualInput` | Text input form — shown when auto-detect fails |
-| `StatusBar` | Shows loading state: "Detecting...", "Analysing...", "Done" |
+| `StatusBar` | Phase-based status: "Ready to analyse", "Picking element", "Event detected", "Analysing...", "Done", "Error" |
 | `ResearchOutput` | Renders all 7 research sections |
 | `SectionBlock` | Renders a single section (title + body) |
 | `ErrorState` | Displays error messages for each failure type |
@@ -372,12 +377,12 @@ The picker workflow:
 
 The picker includes a debug mode (`Ctrl+Shift+D`) that logs parsing details to console.
 
-**Element Parsing (`parseElementText`)**
+**Element Parsing (site-specific parsers)**
 
-The parser in `parseElementText.ts` tries two strategies:
+The parser in `src/content/sites/kalshi/parseMarket.ts` tries two strategies:
 
-1. **Kalshi-specific parser** — looks for `[data-testid="market-tile"]` elements, extracts title from `<h2>`, outcomes from `[aria-valuenow]` progress bars, volume from text matching `\$[\d,]+[kmb]?`
-2. **Generic text-based fallback** — scans `innerText` for percentage patterns (`\d{1,3}%`), extracts title from headings or first non-percentage line, pairs labels with probabilities
+1. **Kalshi listing tile parser** — looks for `[data-testid="market-tile"]` elements, extracts title from `<h2>`, outcomes from `[aria-valuenow]` progress bars, volume from text matching `\$[\d,]+[kmb]?`
+2. **Kalshi detail page parser** — looks for `h2.typ-headline-x10` percentage headers and `span.typ-body-x30` outcome labels within the outcomes container
 
 Each parsed element produces a `DetectedMarket`:
 
