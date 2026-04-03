@@ -1,11 +1,13 @@
+// TODO: Re-enable auth when backend is ready
+// import { getAccessToken, clearTokens } from '../auth/tokenManager.ts'
+// import { fetchUserPlan } from '../api/client.ts'
 import { useEffect } from 'react'
-import { getAccessToken, clearTokens } from '../auth/tokenManager.ts'
-import { fetchUserPlan } from '../api/client.ts'
 import { useAppContext } from '../sidepanel/context.tsx'
 
 export function useAuth() {
   const { state, dispatch } = useAppContext();
 
+  /* 
   useEffect(() => {
     async function checkAuth() {
       const token = await getAccessToken();
@@ -22,11 +24,19 @@ export function useAuth() {
     }
     checkAuth();
   }, [dispatch]);
+  */
 
+  // Dev mode: assume authenticated
+  useEffect(() => {
+    dispatch({ type: 'SET_USER', payload: { isAuthenticated: true, plan: 'free' } });
+  }, [dispatch]);
+
+  /*
   async function logout() {
     await clearTokens();
     dispatch({ type: 'AUTH_REQUIRED' });
   }
+  */
 
-  return { isAuthenticated: state.user.isAuthenticated, logout };
+  return { isAuthenticated: state.user.isAuthenticated, logout: () => {} };
 }

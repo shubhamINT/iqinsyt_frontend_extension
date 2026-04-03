@@ -1,4 +1,4 @@
-import { getAccessToken } from '../auth/tokenManager.ts'
+// import { getAccessToken } from '../auth/tokenManager.ts'  // TODO: re-enable auth
 import type { InsightRequest, InsightResponse, AuthTokenResponse, UserPlanResponse } from './types.ts'
 import type { DetectedEvent } from '../shared/types.ts'
 
@@ -25,14 +25,16 @@ function sanitize(text: string): string {
 }
 
 async function authedFetch(path: string, init: RequestInit): Promise<Response> {
-  const token = await getAccessToken();
-  if (!token) throw new AuthError('No token');
+  // TODO: re-enable auth
+  // const token = await getAccessToken();
+  // if (!token) throw new AuthError('No token');
+  const token = ''; // dev mode — no auth
 
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       ...init.headers,
     },
   });
@@ -53,7 +55,7 @@ export async function fetchInsight(event: DetectedEvent): Promise<InsightRespons
     timestamp: Date.now(),
   };
 
-  const response = await authedFetch('/v1/insight', {
+  const response = await authedFetch('/v1/research', {
     method: 'POST',
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(12_000),

@@ -14,7 +14,7 @@ export function useInsightQuery() {
       } else if (message.type === 'ANALYSIS_ERROR') {
         dispatch({ type: 'SHOW_ERROR', payload: message.payload as string });
       } else if (message.type === 'AUTH_REQUIRED') {
-        dispatch({ type: 'AUTH_REQUIRED' });
+        dispatch({ type: 'SHOW_ERROR', payload: 'Not signed in. Please sign in to continue.' });
       }
     }
 

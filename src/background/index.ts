@@ -42,10 +42,13 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
 });
 
 async function handleAnalysis(event: DetectedEvent): Promise<void> {
+  console.log('[Background] Starting analysis for:', event.title);
   try {
     const result = await fetchInsight(event);
+    console.log('[Background] Analysis result received');
     chrome.runtime.sendMessage({ type: 'ANALYSIS_RESULT', payload: result }).catch(() => {});
   } catch (err) {
+    console.log('[Background] Analysis error:', err);
     if (err instanceof AuthError) {
       chrome.runtime.sendMessage({ type: 'AUTH_REQUIRED' }).catch(() => {});
     } else {
