@@ -13,35 +13,58 @@ You think like a senior engineer. That means one thing above all else:
 
 ## Before Writing Any Code
 
-1. **Read first.** Check existing files and understand the project before touching anything.
-2. **Check for a `README.md`.** If it exists, read it. If it doesn't, create one.
-3. **Plan the simplest solution.** Only add complexity when there's a real reason for it today.
+1. **Read first.** Check existing files, config, and project structure before touching anything.
+2. **Check for docs.** If a README.md or CLAUDE.md exists, read it to understand the project context, conventions, and constraints.
+3. **Plan the simplest solution.** Only add complexity when there is a real, present reason — not a hypothetical future one.
+
+---
+
+## Understand the Codebase
+
+Before making changes, build a mental model of the project:
+
+- **Identify the stack.** Read config files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Makefile`, etc.) to understand the language, framework, package manager, and build system.
+- **Learn existing patterns.** How are files organized? How are tests structured? What is the import/module convention? What naming style is used?
+- **Follow the project's conventions.** Match what exists, even if you would choose differently on a greenfield project. Consistency within a codebase beats personal preference.
+- **Find before you build.** Search for existing utilities, helpers, and shared functions before writing new ones. Duplication is worse than reuse.
 
 ---
 
 ## While Writing Code
 
-- Names should explain themselves. No `tmp`, `data2`, or `handleStuff()`.
-- One function = one job. If you need "and" to describe it, split it.
-- Handle errors explicitly. Never silently ignore them.
-- Delete anything that isn't used.
-- Provide simple short one line comments to explain the code.
-- **Do not output unnecessary code.** Only provide the code that is strictly required for the task.
-- **Do not modify indentation or formatting of existing code/files unless absolutely necessary.**
+- **Names should explain themselves.** No `tmp`, `data2`, or `handleStuff()`. A reader should understand purpose from the name alone.
+- **One function = one job.** If you need "and" to describe what it does, split it.
+- **Handle errors explicitly.** Never silently swallow errors. Propagate them meaningfully or fail loudly.
+- **Delete anything unused.** Dead code is noise. Remove it, don't comment it out.
+- **Comments explain *why*, not *what*.** If the code needs a comment to explain what it does, the code should be rewritten to be clearer. Only comment non-obvious reasoning, trade-offs, or constraints.
+- **Only output code the task requires.** Do not add speculative features, unused parameters, or "just in case" abstractions.
+- **Do not modify formatting of untouched code.** Respect existing indentation, whitespace, and style in files you did not change.
 
 ---
 
-## README.md — Always Keep It Current
+## Code Quality Standards
 
-- **Missing?** Create it with: project description, how to run it, and a simple folder tree.
-- **Exists?** Read it before starting. Update the **entire** README to stay parallel with the latest code. This includes updating the folder structure, but you must also check and update any other parts (descriptions, usage instructions, etc.) that might be outdated.
+- **Type safety.** Use the language's type system fully. Avoid `any`, `object`, `dynamic`, `interface{}`, or equivalent escape hatches unless there is no alternative.
+- **Minimal dependencies.** Do not add a library for something the standard library or existing project dependencies already handle. Every new dependency is a maintenance burden.
+- **Security by default.** Never hardcode secrets, tokens, API keys, or credentials. Never commit `.env` files. Sanitize all external input at system boundaries.
+- **Immutability where practical.** Prefer `const` over `let`, `readonly` over mutable, pure functions over stateful ones — unless the language or context makes this unnatural.
 
-```
-project/
-├── README.md        # what this is + how to run it
-├── src/             # source code
-└── tests/           # tests
-```
+---
+
+## Working with Existing Codebases
+
+- **Match the existing code style** — indentation, naming convention, file organization, error handling patterns — even if it differs from your preference.
+- **Bug fixes: minimal change.** Fix the bug. Do not refactor, rename, or "improve" surrounding code unless explicitly asked.
+- **New features: follow the nearest example.** Find the most similar existing feature and use it as a template for structure, naming, and patterns.
+- **Do not introduce new patterns, libraries, or architectural concepts** without explicit approval. Adding a new abstraction layer to "one file" often ripples across the codebase.
+
+---
+
+## Testing
+
+- If the project has tests, **run them before and after** your changes.
+- When adding new functionality, **add corresponding tests** following the project's existing test patterns and framework.
+- If no test infrastructure exists, do not set one up unless explicitly asked.
 
 ---
 
@@ -50,84 +73,5 @@ project/
 Ask yourself:
 - Can I delete anything without breaking it?
 - Would a new developer understand this in 5 minutes?
-- Does the README still reflect the real structure?
-
----
-
-## This Project: Indusnet AI Website Backend
-
-> A real-time voice agent built on LiveKit. Know the architecture before touching anything.
-
-### Architecture — Two Separate Processes
-
-| Process | Entry Point | Purpose |
-|---------|------------|---------|
-| FastAPI API | `src/api/main.py` | Health checks + LiveKit JWT token issuance |
-| LiveKit Agent Worker | `src/agents/indusnet/agent.py` | Voice conversations + tool execution |
-
-Run both with `./run_both.sh` or via `docker-compose up`.
-
-### Source Layout — Where Things Go
-
-```
-src/
-├── agents/indusnet/        # The voice agent (START HERE for agent changes)
-│   ├── agent.py            # Agent class, tool registration, LLM/TTS setup
-│   ├── prompts.py          # System prompt for the agent
-│   ├── state.py            # Conversation state model
-│   ├── tools/              # ADD NEW TOOLS HERE (one file per tool)
-│   ├── handlers/           # Data handlers (forms, leads, etc.)
-│   └── helpers/            # Utilities (filler, vector_search, silence, packet)
-├── api/routes/             # ADD NEW API ROUTES HERE
-├── services/               # ADD NEW EXTERNAL INTEGRATIONS HERE
-│   ├── livekit/            # LiveKit SDK wrappers
-│   ├── llm/                # OpenAI LLM/TTS/embedding clients
-│   ├── vectordb/           # ChromaDB vector store
-│   ├── mail/               # SMTP + calendar invites
-│   ├── whatsapp/           # WhatsApp Business API
-│   ├── search/             # SearXNG web/image search
-│   └── map/googlemap/      # Google Maps distance/routing
-└── core/
-    ├── config.py           # ALL env vars loaded here — never read .env directly
-    └── logger.py           # Shared logger — use this, don't create new loggers
-```
-
-### Adding a New Agent Tool
-
-1. Create `src/agents/indusnet/tools/<tool_name>.py`
-2. Define the tool function with `@llm.ai_callable()` decorator
-3. Register it in `agent.py` where other tools are registered
-4. Follow the existing tool files as the pattern — do not invent a new pattern
-
-### Adding a New Service / Integration
-
-- Create `src/services/<category>/<service_name>.py`
-- Expose a clean client or function — no business logic in the service layer
-- Add any new env vars to `.env` and load them in `src/core/config.py`
-
-### Tech Stack Constraints
-
-- **Python 3.12+** — use modern syntax (match/case, `|` unions, etc.)
-- **uv** for dependency management — `uv add <package>`, not pip
-- **LiveKit Agents framework** — follow its session/worker lifecycle; do not bypass it
-- **OpenAI GPT-4 Realtime** for voice; **GPT-4o-mini** for async tasks (transcription, flashcards, fillers)
-- **ChromaDB** for vector search — embeddings use `text-embedding-3-small`
-- **Alembic** for DB migrations — run migrations, never alter tables manually
-
-### Critical Things Not to Break
-
-- LiveKit session lifecycle in `src/agents/session.py` — audio pipeline timing is fragile
-- ChromaDB collection names and embedding dimensions — changing these breaks the knowledge base
-- `.env` variable names — services depend on exact key names loaded in `config.py`
-- Docker service names in `docker-compose.yml` — used in inter-container networking
-
-### Environment & Config
-
-- All secrets and feature flags live in `.env`
-- Access them **only** via `src/core/config.py` — never `os.getenv()` directly in feature code
-- When adding a new integration, add its env var to `.env.example` (or document it)
-
-### Testing
-
-- Tests live in `tests/` — run with `pytest`
-- Before adding a new tool or service, check if a test file exists for that area
+- Did I follow the project's existing patterns, or did I invent something new?
+- If I changed project structure or added significant functionality, does the README need an update?

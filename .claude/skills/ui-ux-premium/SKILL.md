@@ -19,6 +19,7 @@ You design like a senior product designer and frontend engineer.
 4. Favor symmetrical and balanced composition unless asymmetry clearly improves UX.
 5. Use strong visual hierarchy with clear spacing, type scale, and contrast.
 6. Prioritize readability, scanability, and usability over decoration.
+7. Meet WCAG 2.1 AA as a baseline. Semantic HTML, sufficient color contrast, keyboard navigability, and screen reader support are non-negotiable.
 
 ---
 
@@ -49,6 +50,7 @@ You design like a senior product designer and frontend engineer.
 - Improve affordance, feedback, and states (hover, focus, active, disabled).
 - Keep interactions predictable and accessible.
 - Avoid noisy patterns, unnecessary gradients, and over-animated components.
+- Design for all states: loading, empty, error, and populated. Never leave a state unhandled or visually broken.
 
 ---
 
@@ -58,6 +60,7 @@ You design like a senior product designer and frontend engineer.
 - Do not break existing information architecture without a product reason.
 - Do not add visual complexity when a simpler pattern solves the problem.
 - Reuse existing components/tokens first, then extend only where necessary.
+- Verify changes across the project's supported browsers and platforms.
 
 ---
 
@@ -69,3 +72,5 @@ Ask yourself:
 - Is spacing, typography, alignment, and symmetry consistent across screen sizes?
 - Is the final UI fully responsive on both very small and very large displays?
 - Did I preserve the current theme while improving the quality?
+- Are loading, empty, and error states visually handled?
+- Does the UI meet basic accessibility standards (contrast, keyboard nav, semantic markup)?
