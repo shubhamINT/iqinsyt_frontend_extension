@@ -155,7 +155,7 @@ function PanelContent() {
   return (
     <div className="iq-panel">
       <StatusBar onClose={handleClosePanel} />
-      <div className="iq-content">
+      <div className="iq-content" style={phase === 'detected' ? { justifyContent: 'center', alignItems: 'center' } : undefined}>
 
         {phase === 'idle' && (
           <div className="iq-idle">
