@@ -17,12 +17,13 @@ const SECTIONS: { key: keyof InsightSections; label: string }[] = [
 ];
 
 export default function ResearchOutput({ response }: Props) {
-  const { sections, cached, cachedAt, dataRetrievalAvailable, generatedAt, requestId } = response;
+  const { sections } = response;
+  // const { sections, cached, cachedAt, dataRetrievalAvailable, generatedAt, requestId } = response;
 
   return (
     <div className="iq-result">
       <div className="iq-card iq-result__sections">
-        <div className="iq-research__meta">
+        {/* <div className="iq-research__meta">
           {cached && (
             <span className="iq-badge iq-badge--accent">
               Cached{cachedAt ? ` · ${new Date(cachedAt).toLocaleDateString()}` : ''}
@@ -35,7 +36,7 @@ export default function ResearchOutput({ response }: Props) {
             Generated {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           <span className="iq-badge">Req {requestId.slice(0, 8)}</span>
-        </div>
+        </div> */}
 
         {SECTIONS.map(({ key, label }, i) => (
           <SectionBlock
