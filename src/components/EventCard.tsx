@@ -6,6 +6,8 @@ interface Props {
   onPickAnotherEvent: () => void;
   canPickAnotherEvent: boolean;
   loading?: boolean;
+  showRerun?: boolean;
+  onRerun?: () => void;
 }
 
 export default function EventCard({
@@ -14,15 +16,32 @@ export default function EventCard({
   onPickAnotherEvent,
   canPickAnotherEvent,
   loading = false,
+  showRerun = false,
+  onRerun,
 }: Props) {
+  const hasOutcomes = Boolean(event.outcomes?.length);
+
   return (
-    <div className="iq-card">
-      <p className="iq-event-card__label">Detected event</p>
+    <div className="iq-card iq-card--feature">
+      <div className="iq-event-card__header">
+        <p className="iq-event-card__label">Selected event</p>
+        <div className="iq-event-card__meta">
+          <span className="iq-badge iq-badge--accent">{event.source}</span>
+          {event.volume ? (
+            <span className="iq-badge">Vol {event.volume}</span>
+          ) : null}
+          {hasOutcomes ? (
+            <span className="iq-badge">{event.outcomes!.length} outcomes</span>
+          ) : null}
+        </div>
+      </div>
       <h2 className="iq-event-card__title">{event.title}</h2>
-      <p className="iq-event-card__source">{event.source}</p>
+      <p className="iq-event-card__source">
+        Review the selection, then generate a structured brief with current drivers, risks, and confidence.
+      </p>
       <div className="iq-event-card__actions">
-        <button className="iq-btn iq-btn--primary" onClick={onAnalyse} disabled={loading}>
-          {loading ? 'Analysing...' : 'Analyse'}
+        <button className="iq-btn iq-btn--primary" onClick={showRerun ? onRerun : onAnalyse} disabled={loading}>
+          {loading ? 'Analysing...' : showRerun ? 'Redo' : 'Analyse'}
         </button>
         {canPickAnotherEvent ? (
           <button className="iq-btn iq-btn--ghost" onClick={onPickAnotherEvent} disabled={loading}>

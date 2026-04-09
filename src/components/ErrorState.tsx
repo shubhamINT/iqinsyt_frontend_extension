@@ -6,8 +6,10 @@ interface Props {
 
 export default function ErrorState({ message, onDismiss, onRetry }: Props) {
   return (
-    <div className="iq-error">
-      <div className="iq-error__icon" aria-hidden="true">⚠</div>
+    <div className="iq-card iq-error">
+      <div className="iq-error__icon" aria-hidden="true">!</div>
+      <span className="iq-kicker">Research interrupted</span>
+      <h2 className="iq-error__title">Something blocked this run</h2>
       <p className="iq-error__message">{message}</p>
       <div className="iq-error__actions">
         {onRetry && (

@@ -18,23 +18,26 @@ interface StatusBarProps {
 export default function StatusBar({ onClose }: StatusBarProps) {
   const { state } = useAppContext();
   const { phase } = state;
+  const isBusy = phase === 'connecting' || phase === 'streaming';
 
   return (
     <header className="iq-status-bar">
       <div className="iq-status-bar__left">
-        <span className="iq-status-bar__brand">IQinsyt</span>
-        <div className="iq-status-bar__state">
-          {phase === 'connecting' || phase === 'streaming' ? (
-            <span className="iq-spinner" aria-hidden="true" />
-          ) : (
-            <span className={`iq-dot ${phase === 'detected' || phase === 'result' ? 'iq-dot--active' : ''}`} />
-          )}
-          <span>{STATE_LABELS[phase]}</span>
+        <div className="iq-status-bar__brand-block">
+          <span className="iq-status-bar__brand">IQinsyt</span>
+          <div className="iq-status-bar__state" aria-live="polite">
+            {isBusy ? (
+              <span className="iq-spinner" aria-hidden="true" />
+            ) : (
+              <span className={`iq-dot ${phase === 'detected' || phase === 'result' ? 'iq-dot--active' : ''}`} />
+            )}
+            <span className="iq-status-bar__state-label">{STATE_LABELS[phase]}</span>
+          </div>
         </div>
       </div>
       <button className="iq-status-bar__close" onClick={onClose} aria-label="Close panel">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>
     </header>

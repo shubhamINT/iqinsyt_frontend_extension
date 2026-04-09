@@ -14,10 +14,11 @@ export default function ManualInput({ onSubmit }: Props) {
   }
 
   return (
-    <div className="iq-card">
-      <p className="iq-manual__heading">No event detected</p>
+    <div className="iq-card iq-card--feature">
+      <span className="iq-kicker">Manual research</span>
+      <p className="iq-manual__heading">No event detected yet</p>
       <p className="iq-manual__sub">
-        Navigate to a sports or event information page, or enter the event name below.
+        Enter the market or event name directly when the page does not expose a selectable card.
       </p>
       <form onSubmit={handleSubmit}>
         <input
@@ -33,7 +34,7 @@ export default function ManualInput({ onSubmit }: Props) {
           type="submit"
           disabled={!value.trim()}
         >
-          Analyse
+          Generate research
         </button>
       </form>
     </div>

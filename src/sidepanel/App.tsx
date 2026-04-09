@@ -47,6 +47,14 @@ function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'MARKETS_DETECTED': {
       const markets = action.payload;
+      // If user is currently viewing analysis, don't wipe it — just update the detected event
+      if (state.phase === 'result') {
+        return {
+          ...state,
+          detectedEvent: markets.length ? toDetectedEvent(markets[0]) : null,
+        };
+      }
+      // Original behavior for all other phases
       if (!markets.length) {
         return { ...state, phase: 'manual', detectedEvent: null, result: null, error: null, stream: emptyStreamState };
       }
@@ -61,6 +69,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'EVENT_DETECTED':
+      // If user is currently viewing analysis, don't wipe it — just update the detected event
+      if (state.phase === 'result') {
+        return { ...state, detectedEvent: action.payload };
+      }
       return {
         ...state,
         phase: 'detected',
@@ -71,6 +83,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case 'DETECTION_FAILED':
+      // If user is currently viewing analysis, don't wipe it — just clear the detected event
+      if (state.phase === 'result') {
+        return { ...state, detectedEvent: null };
+      }
       return {
         ...state,
         phase: 'manual',
@@ -213,13 +229,14 @@ function PanelContent() {
   return (
     <div className="iq-panel">
       <StatusBar onClose={handleClosePanel} />
-      <div className="iq-content" style={phase === 'detected' ? { justifyContent: 'center', alignItems: 'center' } : undefined}>
+      <div className={`iq-content ${phase === 'detected' ? 'iq-content--centered' : ''}`}>
 
         {phase === 'idle' && (
-          <div className="iq-idle">
-            <p className="iq-idle__title">Ready to analyse</p>
+          <div className="iq-idle iq-idle--hero">
+            <span className="iq-kicker">Smart event research</span>
+            <p className="iq-idle__title">Ready to analyse this page</p>
             <p className="iq-idle__sub">
-              Point to event content on the page to get started.
+              Select an event card on the website and turn it into a structured research brief.
             </p>
             {isSiteAuthorized === false ? (
               <p className="iq-site-auth__notice">You are not authorized on this website.</p>
@@ -232,7 +249,8 @@ function PanelContent() {
         )}
 
         {phase === 'picking' && (
-          <div className="iq-idle">
+          <div className="iq-idle iq-idle--hero">
+            <span className="iq-kicker">Selection mode</span>
             <p className="iq-idle__title">Click an event card</p>
             <p className="iq-idle__sub">
               Hover to highlight an element, then click to select it. Press Esc to cancel.
@@ -243,12 +261,11 @@ function PanelContent() {
         {phase === 'manual' && (
           <>
             <ManualInput onSubmit={handleManualSubmit} />
-            <div style={{ padding: '0 16px 16px' }}>
+            <div className="iq-manual__secondary">
               {isSiteAuthorized === false ? (
                 <p className="iq-site-auth__notice">You are not authorized on this website.</p>
               ) : (
-                <button className="iq-btn iq-btn--ghost" onClick={handleStartPicking}
-                  style={{ width: '100%' }}>
+                <button className="iq-btn iq-btn--ghost" onClick={handleStartPicking}>
                   Select element instead
                 </button>
               )}
@@ -282,8 +299,10 @@ function PanelContent() {
               onAnalyse={handleRerun}
               onPickAnotherEvent={handleStartPicking}
               canPickAnotherEvent={isSiteAuthorized === true}
+              showRerun={true}
+              onRerun={handleRerun}
             />
-            <ResearchOutput response={result} onRerun={handleRerun} />
+            <ResearchOutput response={result} />
           </>
         )}
 

@@ -3,7 +3,6 @@ import type { InsightResponse, InsightSections } from '../api/types.ts'
 
 interface Props {
   response: InsightResponse;
-  onRerun: () => void;
 }
 
 // Display labels in the order architecture.md specifies
@@ -17,27 +16,27 @@ const SECTIONS: { key: keyof InsightSections; label: string }[] = [
   { key: 'dataGaps',          label: 'Data Gaps' },
 ];
 
-export default function ResearchOutput({ response, onRerun }: Props) {
+export default function ResearchOutput({ response }: Props) {
   const { sections, cached, cachedAt, dataRetrievalAvailable, generatedAt, requestId } = response;
 
   return (
-    <div>
-      <div className="iq-research__meta">
-        {cached && (
-          <span className="iq-badge iq-badge--accent">
-            Cached{cachedAt ? ` · ${new Date(cachedAt).toLocaleDateString()}` : ''}
+    <div className="iq-result">
+      <div className="iq-card iq-result__sections">
+        <div className="iq-research__meta">
+          {cached && (
+            <span className="iq-badge iq-badge--accent">
+              Cached{cachedAt ? ` · ${new Date(cachedAt).toLocaleDateString()}` : ''}
+            </span>
+          )}
+          {!dataRetrievalAvailable && (
+            <span className="iq-badge">Data retrieval unavailable</span>
+          )}
+          <span className="iq-badge">
+            Generated {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
-        )}
-        {!dataRetrievalAvailable && (
-          <span className="iq-badge">Data retrieval unavailable</span>
-        )}
-        <span className="iq-badge">
-          Generated {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
-        <span className="iq-badge">Req {requestId.slice(0, 8)}</span>
-      </div>
+          <span className="iq-badge">Req {requestId.slice(0, 8)}</span>
+        </div>
 
-      <div className="iq-card">
         {SECTIONS.map(({ key, label }, i) => (
           <SectionBlock
             key={key}
@@ -47,10 +46,6 @@ export default function ResearchOutput({ response, onRerun }: Props) {
           />
         ))}
       </div>
-
-      <button className="iq-btn iq-btn--ghost" style={{ marginTop: 10 }} onClick={onRerun}>
-        Re-run analysis
-      </button>
     </div>
   );
 }

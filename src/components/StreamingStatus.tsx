@@ -22,11 +22,13 @@ export default function StreamingStatus({ phase, stage, message, progress, onCan
   const detail = message ?? (phase === 'connecting'
     ? 'Waiting for backend confirmation.'
     : 'Running analysis pipeline.');
-  const recentProgress = progress.slice(-6).reverse();
+
+  // Calculate progress percentage (simple: count of steps up to a max)
+  const progressPercent = Math.min((progress.length / 12) * 100, 100);
 
   return (
     <div className="iq-stream">
-      <div className="iq-stream__hero">
+      <div className="iq-card iq-card--hero iq-stream__hero">
         <div className="iq-loading__spinner iq-stream__spinner" />
         <p className="iq-stream__title">{title}</p>
         <p className="iq-stream__detail">{detail}</p>
@@ -35,22 +37,12 @@ export default function StreamingStatus({ phase, stage, message, progress, onCan
         )}
       </div>
 
-      {recentProgress.length > 0 && (
-        <div className="iq-card iq-stream__timeline">
-          {recentProgress.map((item, index) => (
-            <div className="iq-stream__step" key={`${item.stage}-${item.request_id}-${index}`}>
-              <span className="iq-stream__step-dot" aria-hidden="true" />
-              <div>
-                <p className="iq-stream__step-stage">{formatStage(item.stage)}</p>
-                <p className="iq-stream__step-message">{item.message}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="iq-card iq-stream__progress-container">
+        <div className="iq-stream__progress-bar" style={{ width: `${progressPercent}%` }} />
+      </div>
 
       <button className="iq-btn iq-btn--ghost" onClick={onCancel}>
-        Cancel analysis
+        Cancel
       </button>
     </div>
   );
