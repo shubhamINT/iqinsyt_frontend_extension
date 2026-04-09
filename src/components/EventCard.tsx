@@ -19,20 +19,19 @@ export default function EventCard({
   showRerun = false,
   onRerun,
 }: Props) {
-  const hasOutcomes = Boolean(event.outcomes?.length);
+  // const hasOutcomes = Boolean(event.outcomes?.length);
 
   return (
     <div className="iq-card iq-card--feature">
       <div className="iq-event-card__header">
-        <p className="iq-event-card__label">Selected event</p>
+        <p className="iq-event-card__label">Selected event | <span className="iq-badge iq-badge--accent">{event.source}</span></p>
         <div className="iq-event-card__meta">
-          <span className="iq-badge iq-badge--accent">{event.source}</span>
-          {event.volume ? (
+          {/* {event.volume ? (
             <span className="iq-badge">Vol {event.volume}</span>
           ) : null}
           {hasOutcomes ? (
             <span className="iq-badge">{event.outcomes!.length} outcomes</span>
-          ) : null}
+          ) : null} */}
         </div>
       </div>
       <h2 className="iq-event-card__title">{event.title}</h2>
